@@ -16,7 +16,9 @@ def write_tree(path, file, prefix=""):
 
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project = os.path.normpath(os.path.join(script_dir, "../../fastapi-clean-architecture-ddd-template"))
+    project = os.path.normpath(
+        os.path.join(script_dir, "../../fastapi-clean-architecture-ddd-template")
+    )
     root_name = os.path.basename(project)
     output_path = os.path.join(script_dir, "directory_tree.txt")
 

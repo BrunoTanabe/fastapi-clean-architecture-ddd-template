@@ -2,7 +2,6 @@ annotated-types==0.7.0
 anyio==4.9.0
 certifi==2025.6.15
 click==8.2.1
-colorama==0.4.6
 dnspython==2.7.0
 email-validator==2.2.0
 fastapi==0.115.13
@@ -21,10 +20,10 @@ packaging==25.0
 pluggy==1.6.0
 pydantic==2.11.7
 pydantic-core==2.33.2
-pydantic-settings==2.10.0
+pydantic-settings==2.10.1
 pygments==2.19.2
 pytest==8.4.1
-python-dotenv==1.1.0
+python-dotenv==1.1.1
 python-multipart==0.0.20
 pyyaml==6.0.2
 rich==14.0.0
@@ -37,5 +36,6 @@ typer==0.16.0
 typing-extensions==4.14.0
 typing-inspection==0.4.1
 uvicorn==0.34.3
+uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1

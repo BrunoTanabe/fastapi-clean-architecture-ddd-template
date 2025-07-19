@@ -74,52 +74,64 @@ fastapi-clean-architecture-ddd-template
 ├── .python-version
 ├── .venv/
 ├── Dockerfile
+├── LICENSE
+├── README-PTBR.md
 ├── README.md
-├── app/
+├── app
 │   ├── __init__.py
 │   ├── app.py
-│   ├── core/
+│   ├── core
 │   │   ├── __init__.py
-│   │   ├── config.py
 │   │   ├── database.py
+│   │   ├── exception_handler.py
+│   │   ├── exceptions.py
 │   │   ├── logging.py
-│   │   └── security.py
-│   └── modules/
+│   │   ├── middleware.py
+│   │   ├── resources.py
+│   │   ├── schemas.py
+│   │   ├── security.py
+│   │   ├── settings.py
+│   │   └── utils.py
+│   └── modules
 │       ├── __init__.py
-│       └── example/
+│       └── example
 │           ├── __init__.py
-│           ├── application/
+│           ├── application
 │           │   ├── __init__.py
 │           │   ├── interfaces.py
-│           │   └── use_cases.py
-│           ├── domain/
+│           │   ├── use_cases.py
+│           │   └── utils.py
+│           ├── domain
 │           │   ├── __init__.py
 │           │   ├── entities.py
+│           │   ├── mappers.py
 │           │   ├── services.py
 │           │   └── value_objects.py
-│           ├── infrastructure/
+│           ├── infrastructure
 │           │   ├── __init__.py
 │           │   ├── models.py
 │           │   └── repositories.py
-│           └── presentation/
+│           └── presentation
 │               ├── __init__.py
 │               ├── dependencies.py
+│               ├── docs.py
+│               ├── exceptions.py
 │               ├── routers.py
 │               └── schemas.py
 ├── docker-compose.yaml
 ├── docs/
-├── requirements.txt
 ├── pyproject.toml
-├── scripts/
+├── requirements.txt
+├── scripts
 │   ├── __init__.py
 │   └── directory_tree.py
-├── test/
+├── test
 │   ├── __init__.py
-│   ├── core/
+│   ├── core
 │   │   └── __init__.py
-│   └── modules/
+│   └── modules
 │       ├── __init__.py
-│       └── example/
+│       └── example
 │           └── __init__.py
 └── uv.lock
 ```
@@ -172,7 +184,99 @@ Principais componentes dentro de `app/`:
 
 O pacote `app/core` contém módulos de configuração e utilitários fundamentais para a aplicação. São componentes de baixo nível ou transversais, que normalmente são usados por várias partes do sistema. Detalhes dos arquivos dentro de `core/`:
 
-* **`core/config.py`:** Módulo de **configurações da aplicação**. Aqui definimos classes e objetos que carregam variáveis de configuração a partir do ambiente (por exemplo, utilizando `pydantic_settings.BaseSettings`). Em um típico projeto FastAPI, este arquivo define uma classe `Settings` com atributos para cada configuração necessária (ex.: `APP_NAME`, `DEBUG`, `DATABASE_URL`, credenciais de APIs, etc.). A classe `Settings` carrega valores do arquivo `.env` por padrão. Exemplo simplificado do conteúdo:
+* **`core/database.py`:** Módulo responsável por configurar a conexão com banco de dados ou outros recursos de dados persistentes. Por exemplo, se usamos SQLAlchemy, aqui poderíamos instanciar o engine de conexão usando a URL do banco das configs (`settings.database_url`), criar uma sessão (sessionmaker) e fornecer funções utilitárias para obter a sessão (a serem usadas como dependência no FastAPI). Se não usamos banco relacional, este módulo pode ajustar conexão com um banco NoSQL, ou se a aplicação é focada em IA talvez gerencie conexão com um vetor de embeddings, etc. Em suma, é o ponto central para inicializar e compartilhar conexões de dados. Por exemplo:
+
+  ```python
+  from sqlalchemy import create_engine
+  from sqlalchemy.orm import sessionmaker
+  from app.core.settings import settings
+
+  engine = create_engine(settings.database_url)
+  SessionLocal = sessionmaker(bind=engine)
+
+  def get_db():
+      db = SessionLocal()
+      try:
+          yield db
+      finally:
+          db.close()
+  ```
+
+  Em contextos sem banco de dados, este arquivo pode permanecer mínimo ou vazio, mas está preparado para integrar persistência de forma limpa.
+
+* **`core/exception_handler.py`:** Define manipuladores de exceção globais para a aplicação. Aqui podemos configurar como o FastAPI deve lidar com erros não tratados, convertendo exceções específicas em respostas HTTP adequadas. Por exemplo, podemos capturar exceções de validação e retornar erros 422, ou converter erros de banco de dados em 500. Isso centraliza o tratamento de erros e garante que todas as partes da aplicação sigam um padrão consistente. Um exemplo simples:
+
+  ```python
+  from fastapi import Request, HTTPException
+  from fastapi.responses import JSONResponse
+
+  async def http_exception_handler(request: Request, exc: HTTPException):
+      return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+  ```
+
+  No `app.py`, registramos esse manipulador com `app.add_exception_handler(HTTPException, http_exception_handler)`.
+
+* **`core/exceptions.py`:** Define uma classe padrão para ser herdada por exceções personalizadas da aplicação (geralmente herda de `Exception` ou `BaseException`). Essas exceções personalizadas podem ser usadas para representar erros específicos do domínio ou da lógica de negócio, permitindo que tratemos esses casos de forma diferenciada. Por exemplo, podemos ter uma exceção `DomainError` que é lançada quando uma regra de negócio falha, e capturada pelo manipulador global para retornar um erro HTTP adequado.
+
+  ```python
+  class DomainError(Exception):
+      """Exceção base para erros de domínio."""
+      pass
+  ```
+
+* **`core/logging.py`:** Define a configuração global de **logging** da aplicação. Antes de inicializar o servidor, queremos configurar como os logs serão formatados e qual nível de detalhe será exibido (info, debug, error, etc.). Neste arquivo, usamos o módulo padrão `logging` do Python para configurar handlers, formatters e levels. Por exemplo, podemos definir um formato unificado de log, ou integrar a lib `loguru` se preferir. No start da app (em `app.py`), chamamos a função de setup do logging para aplicar essas configurações. Um possível conteúdo:
+
+  ```python
+  import logging
+
+  LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  def setup_logging():
+      logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+      # ... configurações adicionais, se necessárias
+  ```
+
+  Dessa forma, ao iniciar a aplicação, chamamos `setup_logging()` e garantimos logs bem formatados e no nível correto. Manter uma boa configuração de log é crucial para depuração e monitoramento em produção.
+
+* **`core/middleware.py`:** Define middlewares globais da aplicação. Middlewares são funções que interceptam requisições e respostas, permitindo adicionar comportamentos comuns, como autenticação, logging de requisições, manipulação de CORS, etc. Neste arquivo, podemos definir middlewares que serão aplicados a todas as rotas da aplicação. Por exemplo, um middleware para registrar cada requisição recebida e sua resposta:
+
+  ```python
+  from fastapi import Request
+  from starlette.middleware.base import BaseHTTPMiddleware
+
+  class LoggingMiddleware(BaseHTTPMiddleware):
+      async def dispatch(self, request: Request, call_next):
+          response = await call_next(request)
+          # Aqui você pode logar detalhes da requisição/resposta
+          return response
+  ```
+
+  No `app.py`, registramos esse middleware com `app.add_middleware(LoggingMiddleware)`.
+
+* **`core/resources.py`:** Módulo para gerenciar recursos estáticos ou arquivos de configuração que a aplicação possa precisar. Por exemplo, se a aplicação usa templates HTML, arquivos estáticos (CSS, JS), ou arquivos de configuração adicionais, podemos definir funções aqui para carregar esses recursos. Isso centraliza o acesso a arquivos que não são código, mas são necessários para o funcionamento da aplicação. Além disso, pode usado para inicializar e encerrar recursos como conexões a serviços externos (ex: APIs de terceiros) que não são bancos de dados.
+
+* **`core/schemas.py`:** Define **schemas Pydantic** que são herdados por outras partes da aplicação. Schemas são usados para validação de dados de entrada e saída, especialmente em APIs. Aqui podemos definir schemas comuns que serão reutilizados em múltiplos módulos, como `BaseResponse`, `ErrorResponse`, ou outros tipos genéricos que não pertencem a um módulo específico. Por exemplo:
+
+  ```python
+  from pydantic import BaseModel
+
+  class BaseResponse(BaseModel):
+      success: bool
+      message: str = None
+  ```
+
+  Esses schemas podem ser importados e usados em diferentes módulos para garantir consistência na estrutura das respostas.
+
+* **`core/security.py`:** Módulo para funcionalidades de segurança **comuns** da aplicação. Por exemplo, podemos definir aqui utilitários para hash de senhas, geração e verificação de tokens JWT, configuração de políticas de CORS, contextos de autenticação, etc. A ideia é centralizar aspectos de segurança que possam ser usados em múltiplos módulos.
+
+  * Se a aplicação requer autenticação de usuários, esse arquivo pode conter funções para criar/verificar tokens JWT (e.g., usando `python-jose` ou similar), funções para criptografar/verificar senha (e.g., usando `passlib`).
+  * Também pode definir credenciais de OAuth ou escopos de autorização.
+
+  **Observação:** A autenticação/autorização específica de cada rota ou módulo pode ser configurada nos *routers* (camada de Presentation), mas as funções genéricas de suporte (como verificar assinatura de token, obter usuário atual a partir do token, etc.) podem residir aqui no core. Assim, evitamos repetição e usamos as mesmas funções de segurança em todo o projeto.
+
+Em resumo, o `app/core/` abriga código que é transversal e agnóstico de domínio específico, servindo de alicerce para a aplicação como um todo.
+
+* **`core/settings.py`:** Módulo de **configurações da aplicação**. Aqui definimos classes e objetos que carregam variáveis de configuração a partir do ambiente (por exemplo, utilizando `pydantic_settings.BaseSettings`). Em um típico projeto FastAPI, este arquivo define uma classe `Settings` com atributos para cada configuração necessária (ex.: `APP_NAME`, `DEBUG`, `DATABASE_URL`, credenciais de APIs, etc.). A classe `Settings` carrega valores do arquivo `.env` por padrão. Exemplo simplificado do conteúdo:
 
   ```python
   from pydantic_settings import BaseSettings
@@ -189,48 +293,7 @@ O pacote `app/core` contém módulos de configuração e utilitários fundamenta
 
   Assim, outras partes do código podem importar `settings` para acessar configurações (e.g., `settings.database_url`). Esse padrão centraliza todas as configurações da aplicação num só lugar e facilita alterar comportamentos via variável de ambiente sem mudar código. Lembre-se de manter segredos (e.g., secret keys) apenas no .env e não commitá-los.
 
-* **`core/database.py`:** Módulo responsável por configurar a conexão com banco de dados ou outros recursos de dados persistentes. Por exemplo, se usamos SQLAlchemy, aqui poderíamos instanciar o engine de conexão usando a URL do banco das configs (`settings.database_url`), criar uma sessão (sessionmaker) e fornecer funções utilitárias para obter a sessão (a serem usadas como dependência no FastAPI). Se não usamos banco relacional, este módulo pode ajustar conexão com um banco NoSQL, ou se a aplicação é focada em IA talvez gerencie conexão com um vetor de embeddings, etc. Em suma, é o ponto central para inicializar e compartilhar conexões de dados. Por exemplo:
-
-  ```python
-  from sqlalchemy import create_engine
-  from sqlalchemy.orm import sessionmaker
-  from app.core.config import settings
-
-  engine = create_engine(settings.database_url)
-  SessionLocal = sessionmaker(bind=engine)
-
-  def get_db():
-      db = SessionLocal()
-      try:
-          yield db
-      finally:
-          db.close()
-  ```
-
-  Em contextos sem banco de dados, este arquivo pode permanecer mínimo ou vazio, mas está preparado para integrar persistência de forma limpa.
-
-* **`core/logging.py`:** Define a configuração global de **logging** da aplicação. Antes de inicializar o servidor, queremos configurar como os logs serão formatados e qual nível de detalhe será exibido (info, debug, error, etc.). Neste arquivo, usamos o módulo padrão `logging` do Python para configurar handlers, formatters e levels. Por exemplo, podemos definir um formato unificado de log, ou integrar a lib `loguru` se preferir. No start da app (em `app.py`), chamamos a função de setup do logging para aplicar essas configurações. Um possível conteúdo:
-
-  ```python
-  import logging
-
-  LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-  def setup_logging():
-      logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-      # ... configurações adicionais, se necessárias
-  ```
-
-  Dessa forma, ao iniciar a aplicação, chamamos `setup_logging()` e garantimos logs bem formatados e no nível correto. Manter uma boa configuração de log é crucial para depuração e monitoramento em produção.
-
-* **`core/security.py`:** Módulo para funcionalidades de segurança **comuns** da aplicação. Por exemplo, podemos definir aqui utilitários para hash de senhas, geração e verificação de tokens JWT, configuração de políticas de CORS, contextos de autenticação, etc. A ideia é centralizar aspectos de segurança que possam ser usados em múltiplos módulos.
-
-  * Se a aplicação requer autenticação de usuários, esse arquivo pode conter funções para criar/verificar tokens JWT (e.g., usando `python-jose` ou similar), funções para criptografar/verificar senha (e.g., usando `passlib`).
-  * Também pode definir credenciais de OAuth ou escopos de autorização.
-
-  **Observação:** A autenticação/autorização específica de cada rota ou módulo pode ser configurada nos *routers* (camada de Presentation), mas as funções genéricas de suporte (como verificar assinatura de token, obter usuário atual a partir do token, etc.) podem residir aqui no core. Assim, evitamos repetição e usamos as mesmas funções de segurança em todo o projeto.
-
-Em resumo, o `app/core/` abriga código que é transversal e agnóstico de domínio específico, servindo de alicerce para a aplicação como um todo.
+* **`core/utils.py`:** Módulo para funções utilitárias gerais que não se encaixam em outras categorias. Aqui podemos colocar funções auxiliares que são usadas em múltiplos lugares no módulo `core`, como formatação de strings, manipulação de datas, validações genéricas, etc. O objetivo é evitar duplicação de código e centralizar lógicas simples que podem ser reutilizadas.
 
 #### Diretório `app/modules/` (Módulos de Funcionalidade)
 
@@ -258,6 +321,10 @@ Esta subpasta define o núcleo de regras de negócio do módulo. Os arquivos aqu
 * **`entities.py`:** Define as **Entidades de Domínio** do módulo. Entidades são classes ou estruturas que representam os objetos fundamentais do negócio com os quais o módulo lida, incluindo seus atributos e possivelmente lógica básica interna. Por exemplo, num módulo de usuários poderíamos ter uma entidade `User` com atributos como id, nome, email, e métodos para verificar senha ou alterar perfil. As entidades devem encapsular invariantes e regras simples relacionadas a si mesmas.
 
   Em Python, entidades podem ser implementadas como classes normais ou até dataclasses, dependendo da necessidade. O importante é que elas não dependem de como são armazenadas ou exibidas – são apenas modelos de negócio. No contexto de IA, se este módulo envolvesse por exemplo um "Modelo de IA" ou "Dataset", poderiam ser entidades também (representando configurações ou estado desses objetos).
+
+* **`mappers.py`:** (Mapeadores) Este arquivo contém funções ou classes que convertem entidades de domínio para formatos adequados para persistência (como modelos ORM) e vice-versa. Por exemplo, se estivermos usando SQLAlchemy, aqui poderíamos ter funções que transformam uma entidade `User` em um modelo `UserModel` do SQLAlchemy e outra função que faz o inverso. Isso permite manter as entidades puras e desacopladas de detalhes de persistência.
+
+  Mapeadores são úteis para manter a lógica de conversão centralizada, evitando duplicação de código em repositórios ou serviços. Se o módulo não requer mapeamento complexo, este arquivo pode ser omitido ou ficar vazio.
 
 * **`value_objects.py`:** (Objetos de Valor) Contém definição de tipos ou classes que representam valores do domínio que possuem lógica ou invariantes próprias, mas não têm identidade única como as entidades. Em Domain-Driven Design, **Value Objects** são imutáveis e comparados por valor, não por identidade.
 
@@ -321,6 +388,10 @@ A subpasta `application` implementa os **casos de uso (use cases)** do módulo e
   O importante é que **Use Cases não sabem nada de HTTP, JSON ou detalhes de API** – isso é tratado na camada de apresentação. Eles recebem e retornam objetos de domínio (ou estruturas Python puras) e podem levantar exceções de negócio se algo impede a execução (ex: "Foo já existe", "Dados inválidos" etc.), que a camada de apresentação transformará em respostas HTTP adequadas.
 
   Em `use_cases.py` podemos ter múltiplos use cases implementados. Se o arquivo ficar muito grande, uma boa prática é subdividir por funcionalidade (ex: um arquivo por caso de uso complexo, ou agrupar alguns relacionados). Mas inicialmente, o template deixa um arquivo único para simplificar.
+
+* **`utils.py`:** Contém funções utilitárias específicas da camada de aplicação. Aqui podemos colocar funções auxiliares que são usadas por múltiplos casos de uso, como validações comuns, formatação de dados, etc. O objetivo é evitar duplicação de código e centralizar lógicas simples que podem ser reutilizadas em diferentes use cases.
+
+  Por exemplo, se vários casos de uso precisam validar formatos de entrada (como verificar se um email é válido), podemos ter uma função `validar_email(email: str) -> bool` aqui. Assim, os use cases podem chamar essa função sem duplicar a lógica.
 
 ###### Infrastructure (Infraestrutura)
 
@@ -435,6 +506,20 @@ A subpasta `presentation` define como o módulo expõe as suas funcionalidades p
   ```
 
   possivelmente com um prefixo (por ex., `/api/v1` global, ou prefixos específicos se desejado).
+
+* **`docs.py`:** Este arquivo é opcional e pode ser usado para separar a documentação específica do módulo, como descrições de endpoints, exemplos de uso, ou detalhes adicionais da rota para melhor organização docódigo no caso de documentação extensa. No entanto, em muitos casos, a documentação dos endpoints pode ser feita diretamente nas rotas usando docstrings e anotações do FastAPI, então este arquivo pode ficar vazio ou ser omitido.
+
+* **`exceptions.py`:** Define exceções específicas do módulo que podem ser levantadas pelos endpoints ou use cases. Essas exceções podem ser usadas para sinalizar erros de negócio específicos (ex: "Foo já existe", "Foo não encontrado") e podem ser capturadas pelo manipulador global de exceções (definido em `core/exception_handler.py`) para retornar respostas HTTP adequadas.
+
+  Por exemplo, poderíamos ter:
+
+  ```python
+  class FooAlreadyExistsException(Exception):
+      """Exceção lançada quando um Foo já existe."""
+      pass
+  ```
+
+  E então, dentro dos use cases ou rotas, podemos levantar essa exceção quando necessário, e o manipulador global cuidará de transformar isso em uma resposta HTTP 409 Conflict.
 
 * **`schemas.py`:** Define os **Schemas Pydantic** usados para validar e serializar os dados nas entradas e saídas dos endpoints da API desse módulo. Pydantic (v2, integrada via FastAPI) permite criar classes modelo que representam a estrutura dos dados esperados/retornados em JSON, com validação de tipos automática.
 

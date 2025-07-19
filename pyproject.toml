@@ -6,8 +6,12 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.115.13",
+    "hypercorn>=0.17.3",
+    "loguru>=0.7.3",
+    "orjson>=3.11.0",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.0",
+    "stackprinter>=0.2.12",
 ]
 
 [dependency-groups]
