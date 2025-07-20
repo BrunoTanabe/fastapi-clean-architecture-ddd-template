@@ -74,52 +74,64 @@ fastapi-clean-architecture-ddd-template
 ├── .python-version
 ├── .venv/
 ├── Dockerfile
+├── LICENSE
+├── README-PTBR.md
 ├── README.md
-├── app/
+├── app
 │   ├── __init__.py
 │   ├── app.py
-│   ├── core/
+│   ├── core
 │   │   ├── __init__.py
-│   │   ├── config.py
 │   │   ├── database.py
+│   │   ├── exception_handler.py
+│   │   ├── exceptions.py
 │   │   ├── logging.py
-│   │   └── security.py
-│   └── modules/
+│   │   ├── middleware.py
+│   │   ├── resources.py
+│   │   ├── schemas.py
+│   │   ├── security.py
+│   │   ├── settings.py
+│   │   └── utils.py
+│   └── modules
 │       ├── __init__.py
-│       └── example/
+│       └── example
 │           ├── __init__.py
-│           ├── application/
+│           ├── application
 │           │   ├── __init__.py
 │           │   ├── interfaces.py
-│           │   └── use_cases.py
-│           ├── domain/
+│           │   ├── use_cases.py
+│           │   └── utils.py
+│           ├── domain
 │           │   ├── __init__.py
 │           │   ├── entities.py
+│           │   ├── mappers.py
 │           │   ├── services.py
 │           │   └── value_objects.py
-│           ├── infrastructure/
+│           ├── infrastructure
 │           │   ├── __init__.py
 │           │   ├── models.py
 │           │   └── repositories.py
-│           └── presentation/
+│           └── presentation
 │               ├── __init__.py
 │               ├── dependencies.py
+│               ├── docs.py
+│               ├── exceptions.py
 │               ├── routers.py
 │               └── schemas.py
 ├── docker-compose.yaml
 ├── docs/
-├── requirements.txt
 ├── pyproject.toml
-├── scripts/
+├── requirements.txt
+├── scripts
 │   ├── __init__.py
 │   └── directory_tree.py
-├── test/
+├── test
 │   ├── __init__.py
-│   ├── core/
+│   ├── core
 │   │   └── __init__.py
-│   └── modules/
+│   └── modules
 │       ├── __init__.py
-│       └── example/
+│       └── example
 │           └── __init__.py
 └── uv.lock
 ```
@@ -153,26 +165,118 @@ At the root of the repository are configuration files, environment files, and ge
 
 ### `app/` Directory (Application)
 
-The `app/` directory contains all the **Python** source code of the application itself. It is a Python package (note the `__init__.py` file inside it) and houses both the FastAPI application instance and the submodules organized by functional domain. In larger projects, we might have multiple application packages, but here we use a single `app` package to encompass the entire backend.
+The `app/` directory contains all of the application’s **Python** source code. It is a Python package (note the `__init__.py` file inside) and houses both the FastAPI application instance and the sub-modules organized by functional domain. In larger projects we might have multiple application packages, but here we use a single `app` package to gather everything in the backend.
 
-Main components within `app/`:
+Main components inside `app/`:
 
-* **`app.py`:** This is the main FastAPI application file. It is the backend's **entry point**. Typically, it:
+* **`app.py`:** The main FastAPI application file—the backend **entry point**. Inside it we typically instantiate the FastAPI app and include the routes defined in the various modules. For example:
 
-  * Creates the `app = FastAPI(...)` object, configuring title, version, etc.
-  * Loads initial configurations (e.g., setting log level from `core/logging.py`, or reading settings from `core/config.py`).
-  * Includes routers from each module using `app.include_router(...)` to register the routes of different parts of the API. In our case, it includes the router from the example module (and later from other modules).
-  * Defines startup and shutdown event handlers if needed (e.g., `startup` to connect to the database using `core/database.py`, or `shutdown` to close connections).
+  * Creates the object `app = FastAPI(...)`, configuring title, version, etc.
+  * Loads initial settings (e.g., setting log level from `core/logging.py`, or reading configs from `core/config.py`).
+  * Includes each module’s routers using `app.include_router(...)`, registering the routes from the different parts of the API. In our case it will include the router from the example module (and, in the future, from other modules).
+  * Defines startup or shutdown event handlers if needed (e.g., a `startup` function to connect to the database via `core/database.py`, or `shutdown` to close connections).
 
-  In summary, `app.py` assembles the application by composing pieces defined elsewhere. This file (specifically the `app` object within it) is what gets pointed to when running the server.
+  In short, `app.py` assembles the application by composing pieces defined elsewhere. This file (more precisely, the `app` object in it) is what you point to when running the server.
 
-* **`__init__.py`:** Empty (or nearly empty) file used to indicate that `app` is a Python package. There’s no need to put logic here, though you could use it to configure global imports if desired (not required; keeping it empty is fine for simplicity).
+* **`__init__.py`:** An empty (or nearly empty) file whose only purpose is to mark `app` as a Python package. There’s no need to put logic here, though you could use it to set up global imports if desired (keeping it empty for simplicity is fine).
 
-#### `app/core/` Directory (Core Configuration)
+#### `app/core/` Directory (Central Configuration)
 
-The `app/core` package contains fundamental configuration modules and utilities for the application. These are low-level or cross-cutting components commonly used by multiple parts of the system. File details within `core/`:
+The `app/core` package contains foundational configuration modules and utilities for the application. These are low-level or cross-cutting components that are usually used by multiple parts of the system. Details of the files inside `core/`:
 
-* **`core/config.py`:** **Application configuration** module. Here we define classes and objects that load configuration variables from the environment (e.g., using `pydantic_settings.BaseSettings`). In a typical FastAPI project, this file defines a `Settings` class with attributes for each required config (e.g., `APP_NAME`, `DEBUG`, `DATABASE_URL`, API credentials, etc.). The `Settings` class loads values from the `.env` file by default. Simplified example:
+* **`core/database.py`:** Module responsible for setting up the database connection or other persistent data resources. For example, if we use SQLAlchemy, this is where we might instantiate the connection engine using the DB URL from the settings (`settings.database_url`), create a sessionmaker, and provide utility functions to obtain a session (to be used as a FastAPI dependency). If we don’t use a relational DB, this module could configure a NoSQL connection, or—if the app is AI-focused—manage a vector store, etc. In short, it’s the central point for initializing and sharing data connections. For example:
+
+  ```python
+  from sqlalchemy import create_engine
+  from sqlalchemy.orm import sessionmaker
+  from app.core.settings import settings
+
+  engine = create_engine(settings.database_url)
+  SessionLocal = sessionmaker(bind=engine)
+
+  def get_db():
+      db = SessionLocal()
+      try:
+          yield db
+      finally:
+          db.close()
+  ```
+
+  In contexts without a database this file may remain minimal or empty, but it’s ready to integrate persistence cleanly.
+
+* **`core/exception_handler.py`:** Defines global exception handlers for the application. Here we can configure how FastAPI should handle unhandled errors, converting specific exceptions into appropriate HTTP responses. For instance, we can catch validation exceptions and return 422 errors, or convert DB errors into 500s. This centralizes error handling and ensures all parts of the app follow a consistent pattern. A simple example:
+
+  ```python
+  from fastapi import Request, HTTPException
+  from fastapi.responses import JSONResponse
+
+  async def http_exception_handler(request: Request, exc: HTTPException):
+      return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+  ```
+
+  In `app.py`, we register this handler with `app.add_exception_handler(HTTPException, http_exception_handler)`.
+
+* **`core/exceptions.py`:** Defines a base class to be inherited by custom application exceptions (usually inheriting from `Exception` or `BaseException`). These custom exceptions can represent domain-specific or business-logic errors, allowing us to treat those cases differently. For example, we might have a `DomainError` exception raised when a business rule fails, which the global handler converts into a suitable HTTP error.
+
+  ```python
+  class DomainError(Exception):
+      """Base exception for domain errors."""
+      pass
+  ```
+
+* **`core/logging.py`:** Sets up the application’s global **logging** configuration. Before the server starts we want to configure how logs will be formatted and what detail level will be shown (info, debug, error, etc.). This file uses Python’s built-in `logging` module to configure handlers, formatters, and levels. For example, we can define a unified log format or integrate the `loguru` library if preferred. At app startup (`app.py`), we call the logging setup function. A possible content:
+
+  ```python
+  import logging
+
+  LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  def setup_logging():
+      logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+      # ... additional settings if needed
+  ```
+
+  This way, when the application starts we call `setup_logging()` and ensure well-formatted logs at the correct level. A solid log configuration is crucial for debugging and production monitoring.
+
+* **`core/middleware.py`:** Defines global middlewares for the application. Middlewares are functions that intercept requests and responses, allowing you to add common behaviors such as authentication, request logging, CORS handling, etc. In this file we can define middlewares applied to every route. For example, a middleware to log each received request and its response:
+
+  ```python
+  from fastapi import Request
+  from starlette.middleware.base import BaseHTTPMiddleware
+
+  class LoggingMiddleware(BaseHTTPMiddleware):
+      async def dispatch(self, request: Request, call_next):
+          response = await call_next(request)
+          # Here you can log request/response details
+          return response
+  ```
+
+  In `app.py`, we register this middleware with `app.add_middleware(LoggingMiddleware)`.
+
+* **`core/resources.py`:** Module for managing static resources or configuration files the application may need. For example, if the app uses HTML templates, static files (CSS, JS), or additional config files, we can define functions here to load those resources. This centralizes access to non-code files required by the app. It can also initialize and tear down resources like external service connections (e.g., third-party APIs) that aren’t databases.
+
+* **`core/schemas.py`:** Defines **Pydantic schemas** inherited by other parts of the app. Schemas are used for validating input and output data, especially in APIs. Here we can define common schemas reused across multiple modules, such as `BaseResponse`, `ErrorResponse`, or other generics that don’t belong to a specific module. For example:
+
+  ```python
+  from pydantic import BaseModel
+
+  class BaseResponse(BaseModel):
+      success: bool
+      message: str | None = None
+  ```
+
+  These schemas can be imported and used in different modules to ensure consistency in response structure.
+
+* **`core/security.py`:** Module for **shared security** functionality. For example, utilities for password hashing, JWT generation and verification, CORS policies, authentication contexts, etc. The idea is to centralize security aspects used in multiple modules.
+
+  * If the app requires user authentication, this file might include functions to create/verify JWT tokens (e.g., with `python-jose`), functions to hash/verify passwords (e.g., with `passlib`).
+  * It can also define OAuth credentials or authorization scopes.
+
+  **Note:** Route-specific auth/authorization may be configured in the *routers* (presentation layer), but generic support functions (like verifying a token signature, fetching the current user from the token, etc.) can live here in core. This avoids repetition and ensures the same security utilities are used throughout the project.
+
+In summary, `app/core/` hosts code that is cross-cutting and domain-agnostic, forming the foundation of the entire application.
+
+* **`core/settings.py`:** Application **configuration** module. Here we define classes and objects that load environment variables (e.g., using `pydantic_settings.BaseSettings`). In a typical FastAPI project this file defines a `Settings` class with attributes for every needed configuration (e.g., `APP_NAME`, `DEBUG`, `DATABASE_URL`, API credentials, etc.). The `Settings` class loads values from the `.env` file by default. A simplified example:
 
   ```python
   from pydantic_settings import BaseSettings
@@ -187,112 +291,75 @@ The `app/core` package contains fundamental configuration modules and utilities 
   settings = Settings()
   ```
 
-  Other parts of the code can then import `settings` to access config values (e.g., `settings.database_url`). This pattern centralizes application configuration in one place and allows behavior changes via environment variables without touching the code. Remember to keep secrets (e.g., secret keys) only in the .env file and not commit them.
+  Other parts of the code then import `settings` to access configurations (e.g., `settings.database_url`). This pattern centralizes all configs in one place and lets you change behavior via environment variables without altering code. Remember to keep secrets (e.g., secret keys) only in the .env and not commit them.
 
-* **`core/database.py`:** Module responsible for configuring the connection to a database or other persistent data resources. For example, if using SQLAlchemy, this file could create the connection engine using the database URL from the config (`settings.database_url`), create a session factory (`sessionmaker`), and provide utility functions to obtain a session (used as a dependency in FastAPI). If using a non-relational database, it could configure a NoSQL connection or, in AI-focused apps, manage an embedding vector store, etc. In essence, it’s the central point to initialize and share data connections. Example:
-
-  ```python
-  from sqlalchemy import create_engine
-  from sqlalchemy.orm import sessionmaker
-  from app.core.config import settings
-
-  engine = create_engine(settings.database_url)
-  SessionLocal = sessionmaker(bind=engine)
-
-  def get_db():
-      db = SessionLocal()
-      try:
-          yield db
-      finally:
-          db.close()
-  ```
-
-  In contexts without a database, this file can remain minimal or empty but is prepared to cleanly integrate persistence when needed.
-
-* **`core/logging.py`:** Defines the global **logging** configuration for the application. Before starting the server, we want to set up how logs will be formatted and what detail level will be shown (info, debug, error, etc.). This file uses Python's standard `logging` module to configure handlers, formatters, and levels. For example, it may define a unified log format or integrate a library like `loguru` if preferred. At app startup (in `app.py`), we call the logging setup function to apply these settings. Possible content:
-
-  ```python
-  import logging
-
-  LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-  def setup_logging():
-      logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-      # ... additional config if needed
-  ```
-
-  This ensures that logs are properly formatted and at the correct level from the start of the application. Good logging configuration is crucial for debugging and production monitoring.
-
-* **`core/security.py`:** Module for the application’s **common** security functionality. For example, here you might define utilities for password hashing, JWT token generation and validation, CORS policy configuration, authentication contexts, etc. The idea is to centralize security aspects that may be reused across multiple modules.
-
-  * If the application requires user authentication, this file might contain functions for creating/verifying JWT tokens (e.g., using `python-jose`), functions for hashing/verifying passwords (e.g., using `passlib`).
-  * It might also define OAuth credentials or authorization scopes.
-
-  **Note:** Specific authentication/authorization for each route or module can be configured in the *routers* (Presentation layer), but generic support functions (like verifying token signatures or getting the current user from a token) can reside here in core. This avoids repetition and ensures consistent security handling across the project.
-
-In summary, `app/core/` houses code that is cross-cutting and domain-agnostic, serving as a foundation for the entire application.
+* **`core/utils.py`:** Module for general utility functions that don’t fit elsewhere. Here we can place helper functions used in multiple places within `core`, such as string formatting, date manipulation, generic validations, etc. The goal is to avoid code duplication and centralize simple logic that can be reused.
 
 #### `app/modules/` Directory (Feature Modules)
 
-This directory organizes code by **feature or domain context**. Each subfolder in `modules` represents a **module** or **bounded context** of the application, encapsulating domain logic, use cases, interfaces, and infrastructure details related to that feature.
+This directory is where we organize code by **feature or domain context**. Each sub-folder inside `modules` represents a **module** or **bounded context** of the application, encapsulating domain logic, use cases, interfaces, and infrastructure details related to that functionality.
 
-For example, we might have modules like `users`, `orders`, `payments`, `recommendation`, etc., each containing their own entities, use cases, repositories, routes, etc. In our template, there is an example module called **`example/`** that demonstrates the structure. New modules to be created later should follow this same internal organization pattern.
+For example, we might have modules like `users`, `orders`, `payments`, `recommendation`, etc., each containing its entities, use cases, repositories, routes, etc. In our template we have an example module called **`example/`** that demonstrates the structure. New modules to be created in the future should follow the same internal organization pattern.
 
 Structure of a typical module (using the `example` module as a model):
 
 ##### Example Module: `app/modules/example/`
 
-The **example** module was created as a reference and starting point. It implements the suggested architecture within a fictional "example" domain. Inside it, there are subfolders for each logical layer of the module:
+The **example** module was generated as a reference and starting point. It implements the suggested architecture within a fictional “example” domain. Inside it there are sub-folders for each logical layer of the module:
 
 * **application/** – Application layer (use cases and interfaces).
 * **domain/** – Domain layer (entities and business logic).
-* **infrastructure/** – Infrastructure layer (persistence details, external APIs, etc).
+* **infrastructure/** – Infrastructure layer (persistence details, external APIs, etc.).
 * **presentation/** – Presentation layer (FastAPI endpoints, request/response schemas, dependency injection).
 
-Each subfolder contains specific files as described below:
+Each sub-folder contains specific files as described below:
 
 ###### Domain
 
-This subfolder defines the core business rules of the module. The files here describe **what** the main domain concepts are and how they behave, without any dependency on external details (database, FastAPI, etc).
+This sub-folder defines the core business rules of the module. The files here describe **what** the principal domain concepts are and how they behave, with no dependency on external details (database, FastAPI, etc.).
 
-* **`entities.py`:** Defines the module’s **Domain Entities**. Entities are classes or structures representing the fundamental business objects the module deals with, including their attributes and possibly internal logic. For example, a `User` entity might have attributes like id, name, email, and methods for checking passwords or updating profile. Entities should encapsulate invariants and simple rules related to themselves.
+* **`entities.py`:** Defines the module’s **Domain Entities**. Entities are classes or structures representing the fundamental business objects the module deals with, including their attributes and possibly basic internal logic. For example, in a user module we could have a `User` entity with id, name, email, and methods to verify a password or change a profile. Entities should encapsulate invariants and simple rules related to themselves.
 
-  In Python, entities can be implemented as regular classes or dataclasses depending on the need. What's important is that they are not concerned with how they are stored or displayed—they're just business models. In an AI context, if this module involved, say, an "AI Model" or "Dataset", those could be entities too (representing configurations or state).
+  In Python, entities can be implemented as normal classes or even dataclasses, depending on need. The important thing is that they don’t depend on how they are stored or displayed—they are purely business models. In an AI context, if this module involved something like a “Model” or “Dataset,” those could be entities as well (representing configuration or state of those objects).
 
-* **`value_objects.py`:** Contains types or classes representing domain values with their own logic or invariants but no unique identity, unlike entities. In Domain-Driven Design, **Value Objects** are immutable and compared by value, not identity.
+* **`mappers.py`:** This file contains functions or classes that convert domain entities to formats suitable for persistence (such as ORM models) and vice versa. For instance, if we’re using SQLAlchemy, here we could have functions that transform a `User` entity into a `UserModel` SQLAlchemy model and another function that does the reverse. This keeps entities pure and decoupled from persistence details.
 
-  Common examples: a CPF, an Email, a currency/monetary amount, coordinates, etc., which you may want to represent with their own class to enforce formatting or validation. This file may define classes like `Email` that validate format upon construction. In the example module, we might include a `Score` or another illustrative VO.
+  Mappers are useful to keep conversion logic centralized, avoiding code duplication in repositories or services. If the module doesn’t require complex mapping, this file can be omitted or stay empty.
 
-  Keeping value objects separate helps make code more expressive and ensures domain data integrity. If your domain doesn’t have complex value objects, this file can remain empty or be omitted, but the structure is ready if needed.
+* **`value_objects.py`:** Contains definitions of types or classes that represent domain values with their own logic or invariants but no unique identity like entities. In Domain-Driven Design, **Value Objects** are immutable and compared by value, not by identity.
 
-* **`services.py`:** This file gathers **complex domain logic** that doesn’t belong to a single entity or that involves multiple entities. Domain Services are functions or classes that implement business rules using entities and value objects, but which don’t belong exclusively to any one entity.
+  Common examples: a CPF, an Email, a monetary amount, coordinates, etc., which you might represent with their own class to enforce formatting or validation. In this file you can define classes for such specific values, encapsulating checks (e.g., an `Email` class that validates format in the constructor). In the example module we might have something like a `Score` or another demonstrative VO.
 
-  For example, in finance, you might have a domain service to calculate interest or validate a transaction between two accounts (involving two `Account` entities). In an AI context, you might have a domain service to run an inference pipeline or merge results from multiple models if that’s considered part of the domain, not just infrastructure.
+  Keeping value objects separate helps make the code more expressive and ensures domain data integrity. If your domain doesn’t have complex value objects, this file can remain empty or be omitted, but the structure is ready if needed.
 
-  Domain services **should still not access infrastructure**. They operate on in-memory domain objects (likely loaded via repositories) and apply pure logic. If they need external data or need to save results, they should receive that data via parameters or return it for the application layer to persist.
+* **`services.py`:** This file gathers **complex domain logic** that doesn’t fit within a single entity or concerns interaction between multiple entities. Domain Services are functions or classes implementing business rules using entities and value objects, but that don’t belong exclusively to any specific entity.
 
-  In short, place in `services.py` any business rules involving more complex logic or multiple objects, keeping entity code concise.
+  For example, in a financial domain we might have a domain service to calculate interest or validate a transaction between two accounts (involving two `Account` entities). In an AI context there could be a domain service to run an inference pipeline or combine results from multiple models, if that is considered part of the domain rather than mere infra.
+
+  These domain services **should still not access infrastructure**. They operate on domain objects loaded into memory (probably by repositories) and apply pure logic to them. If they need data from outside or must save results, they should receive that data via parameters or return results for higher layers (application) to persist.
+
+  In short, put in `services.py` business rules involving more elaborate logic or multiple objects, keeping entity code lean.
 
 ###### Application
 
-The `application` subfolder implements the module’s **use cases** and defines **interfaces (ports)** connecting the application layer to other layers. This layer orchestrates the steps needed to carry out operations requested from the outside world (e.g., an API endpoint), coordinating entities, calling domain services, and using repositories (interfaces).
+The `application` sub-folder implements the module’s **use cases** and defines **interfaces (ports)** that connect the application layer with other layers. This layer orchestrates the actions required to fulfill operations requested from the outside world (e.g., an API endpoint), coordinating entities, calling domain services, and using repositories (interfaces).
 
-* **`interfaces.py`:** Defines **abstract interfaces** or contracts the application layer expects for infrastructure tasks. Usually, the main interfaces here are domain **Repositories**.
+* **`interfaces.py`:** Defines the **abstract interfaces** or contracts that the application layer expects to perform certain infrastructure tasks. Typically the main interfaces here are the domain **Repositories**.
 
-  For example, if the `example` domain needs to read and write objects to a database, we define an abstract interface here (e.g., `class ExampleRepositoryInterface(ABC): ...`) with methods like `list_objects()`, `get_by_id(id)`, `save(object)`, etc. These can be abstract classes using `abc.ABC` and `@abstractmethod` or Python 3.8+ **Protocols** (`typing.Protocol`) describing expected methods. The domain/application then depends on this interface, without knowing the actual implementation.
+  For example, if the `example` domain needs to read and write objects from a database, here we define an abstract repository interface (e.g., `class ExampleRepositoryInterface(ABC): ...`) with methods like `list_objects()`, `get_by_id(id)`, `save(obj)`, etc. These interfaces can be abstract classes using `abc.ABC` and `@abstractmethod` or Python 3.8+ **protocols** (`typing.Protocol`) describing the expected methods. The domain/application then depends on this interface, without knowing which concrete implementation will be used.
 
-  Besides repositories, interfaces can be defined for any external service the application uses—e.g., email sending services, AI providers (to abstract calls to external models), etc. Anything the application logic needs to call, which is an infrastructure detail, can be formalized here as an interface.
+  Besides repositories, we can define interfaces for other external services the application uses, e.g., an email service interface, an AI provider interface (if you want to abstract calls to external models), etc. Anything the application logic needs to call but which is an infrastructure detail can be formalized as an interface here.
 
-  By isolating interfaces here, we apply the **Dependency Inversion** principle: the application layer defines the contract, and the concrete implementation comes from infrastructure (inverting the dependency). This allows swapping implementations easily (e.g., use an in-memory repo for testing and a real SQL repo in production, both fulfilling the same interface).
+  By isolating interfaces here we apply the **Dependency Inversion** principle: the application layer defines the contract, and the concrete implementation comes from infrastructure (inverting the dependency). This lets us easily swap implementations (e.g., use an in-memory repository for tests and a real SQL repository in production, both fulfilling the same interface).
 
-* **`use_cases.py`:** Contains implementations of the module’s **Use Cases**. Each use case represents a specific action or feature the system provides, bundling the necessary logic to execute it.
+* **`use_cases.py`:** Contains the implementation of the module’s **Use Cases**. Each use case represents a specific action or functionality the system provides, aggregating the logic needed to accomplish it.
 
-  Use cases can be implemented in various ways:
+  Use cases can be implemented in different ways:
 
-  * As **simple functions** (when the logic is small).
-  * As **classes** (e.g., one class per use case, with an `execute()` method or callable via `__call__`). The class approach is useful when the use case needs to inject a repository in the constructor and then execute it.
+  * As simple **functions** when the logic is small.
+  * As **classes** (e.g., one class per use case with an `execute()` method, or making the class callable via `__call__`). The class approach is handy if the use case needs to inject a repository via the constructor and then execute.
 
-  For example, suppose the example module manages "foo". We could have a `CreateFoo` and `ListFoo` use case. In code:
+  For example, suppose the example module manages “foo.” We might have a `CreateFoo` and a `ListFoo` use case. In code we could have:
 
   ```python
   from app.modules.example.domain.entities import Foo
@@ -302,27 +369,35 @@ The `application` subfolder implements the module’s **use cases** and defines 
       def __init__(self, repo: FooRepositoryInterface):
           self.repo = repo
       
-      def CreateFooUseCase(self, data: dict) -> Foo:
+      def create_foo(self, data: dict) -> Foo:
+          # Validate and create entity
           foo = Foo(**data)
-          # Domain rules...
+          # Business rules (call domain services if needed)
+          # ...
+          # Persist using the repository
           saved_foo = self.repo.save(foo)
           return saved_foo
 
-      def ListFooUseCase(self) -> list[Foo]:
-            return self.repo.list()
+      def list_foos(self) -> list[Foo]:
+          # Get all Foos from the repository
+          return self.repo.list()
   ```
 
-  Here, the `FooUseCase` use case receives a repository implementation via injection and uses it to persist the created entity. It coordinates entity creation and applies business rules. The same applies to read use cases: retrieve data from repo, maybe apply some rules (filtering, sorting, calculations), and return the result.
+  In this example the `FooUseCase` receives a repository implementation via injection (in the constructor) and uses it to store the created entity. It coordinates entity creation and rule application. The same style applies to read use cases: obtain data from the repo, possibly apply some rule (e.g., filter, sort, calculate something), and return the result.
 
-  The key point: **Use Cases know nothing about HTTP, JSON, or API details**—those are handled in the presentation layer. They receive and return domain objects (or plain Python structures) and may raise business exceptions (e.g., "Foo already exists", "Invalid data"), which the presentation layer will turn into proper HTTP responses.
+  The important point is that **Use Cases know nothing about HTTP, JSON, or API details**—that’s handled in the presentation layer. They receive and return domain objects (or plain Python structures) and can raise business exceptions if something prevents execution (e.g., “Foo already exists,” “Invalid data,” etc.), which the presentation layer will transform into appropriate HTTP responses.
 
-  `use_cases.py` may contain multiple use cases. If it gets too large, a good practice is to split it by functionality (e.g., one file per complex use case or grouped by related ones). But initially, the template provides a single file for simplicity.
+  We can implement multiple use cases in `use_cases.py`. If the file gets too large, a good practice is to split by functionality (e.g., one file per complex use case, or grouping related ones). But the template initially leaves a single file for simplicity.
+
+* **`utils.py`:** Contains utility functions specific to the application layer. Here we can place helper functions used by multiple use cases, such as common validations, data formatting, etc. The goal is to avoid duplication and centralize simple logic reusable across different use cases.
+
+  For example, if several use cases need to validate input formats (like checking whether an email is valid), we can have a function `validate_email(email: str) -> bool` here. The use cases can then call this function instead of duplicating the logic.
 
 ###### Infrastructure
 
-The module’s `infrastructure` subfolder contains the concrete implementations of the technical details required by the module, following the interfaces defined in the application layer. Here we deal with persistence, external calls, and anything involving external resources or framework-specific details.
+The module’s `infrastructure` sub-folder contains the concrete implementations of the technology details required by the module, fulfilling the interfaces defined in the application layer. Here we deal with persistence, external calls, and anything involving external resources or framework details.
 
-* **`models.py`:** Defines the **infrastructure data models**, typically database models or ORM mappings. For example, if using **SQLAlchemy**, this file can declare SQLAlchemy model classes corresponding to domain entities, with their tables, columns, and relationships. Sometimes the domain entities may structurally match the DB models, but that’s not required—differences are allowed (e.g., technical fields in the DB model that don’t exist in the entity, or vice versa).
+* **`models.py`:** Defines the **infrastructure data models**, typically database models or ORM mappings. For example, if we use **SQLAlchemy**, this file can declare SQLAlchemy model classes corresponding to the domain entities, with their tables, columns, and relationships. Sometimes the domain entities may coincide structurally with the DB models, but that isn’t required—we may have differences (e.g., technical fields in the DB model that don’t exist in the entity, or vice versa).
 
   Example (using SQLAlchemy ORM):
 
@@ -333,18 +408,18 @@ The module’s `infrastructure` subfolder contains the concrete implementations 
   class FooModel(Base):
       __tablename__ = "foo"
       id = Column(Integer, primary_key=True, index=True)
-      nome = Column(String, index=True)
-      descricao = Column(String)
+      name = Column(String, index=True)
+      description = Column(String)
       # etc...
   ```
 
-  Where `Base` is the SQLAlchemy declarative base class imported from `core/database.py`. These models are used by repositories to perform CRUD operations. If you're using another type of persistence (e.g., an ODM for Mongo, or even direct access via client libraries), you might not have a formal `models.py`, but you’ll still have infrastructure-specific data representations here (e.g., Mongo schemas, or JSON document mappings, etc.).
+  Where `Base` would be the declarative base class imported from `core/database.py`. Repositories use these models to perform CRUD operations. If you use another kind of persistence (e.g., an ODM for Mongo, or direct access via client libraries) you might not have a formal “models.py,” but you will still have infrastructure-specific data representations here (e.g., Mongo schemas or JSON document mappings).
 
-  In AI scenarios, `models.py` might contain classes to interact with a pre-trained ML model or endpoint, though that would more often be considered a service rather than a data model. In that case, you could create infrastructure classes to encapsulate calls to external AI models (e.g., OpenAI API)—these could live here or in `repositories.py` depending on how you categorize them (knowledge repositories? external services? Treat them similarly).
+  In AI scenarios, `models.py` could contain classes to interact with a pre-trained ML model or endpoint, but usually that would be more of a service than a data model. In that case you could create infrastructure classes to encapsulate calls to external AI models (e.g., the OpenAI API)—those classes could reside here or in `repositories.py` depending on how you categorize them (are they knowledge repositories or external services? You can treat them similarly).
 
-* **`repositories.py`:** Contains the **concrete implementations of repositories** defined in `application/interfaces.py`. Here we write classes (or functions) that access the actual data source to retrieve or store information.
+* **`repositories.py`:** Contains the **concrete repository implementations** defined in `application/interfaces.py`. Here we write classes (or functions) that access the real data source to retrieve or save information.
 
-  Continuing the Foo example, if `interfaces.py` defines `FooRepositoryInterface` with certain methods, then `repositories.py` will have a `FooRepository` class (implementing `FooRepositoryInterface`) that performs the real operations using the database or other source.
+  Continuing the Foo example, if `interfaces.py` defines `FooRepositoryInterface` with certain methods, `repositories.py` will have a `FooRepository` class (implementing `FooRepositoryInterface`) that performs the actual operations using the database or other means.
 
   Example:
 
@@ -357,16 +432,16 @@ The module’s `infrastructure` subfolder contains the concrete implementations 
       def __init__(self, db_session=None):
           self.db = db_session or SessionLocal()
 
-      def listar(self) -> list[Foo]:
+      def list(self) -> list[Foo]:
           results = self.db.query(FooModel).all()
-          # Map FooModel (ORM) to Foo entity (from domain.entities)
+          # Map FooModel (ORM) to Foo entity (domain.entities)
           return [Foo.from_model(m) for m in results]
 
-      def obter_por_id(self, id: int) -> Foo | None:
+      def get_by_id(self, id: int) -> Foo | None:
           model = self.db.query(FooModel).get(id)
           return Foo.from_model(model) if model else None
 
-      def salvar(self, foo: Foo) -> Foo:
+      def save(self, foo: Foo) -> Foo:
           model = FooModel.from_entity(foo)
           self.db.add(model)
           self.db.commit()
@@ -374,54 +449,54 @@ The module’s `infrastructure` subfolder contains the concrete implementations 
           return Foo.from_model(model)
   ```
 
-  *(Note: `from_model` and `from_entity` would be utility methods to convert between domain entity and ORM model, which you can implement to keep the domain separate from the ORM layer.)*
+  *(Note: methods `from_model` and `from_entity` would be helper methods to convert between domain entities and ORM models, which you might implement to keep the domain separate from the ORM layer.)*
 
-  In this example, the repository receives a database session (which we can get from `app.core.database.SessionLocal`). In FastAPI, we use dependency injection to provide a session per request (see `dependencies.py` in the presentation layer). The repository performs the query or persists data and returns domain objects.
+  In this example, the repository receives a database session (which we can obtain via `app.core.database.SessionLocal`). In FastAPI we’ll use dependency injection to provide one session per request (see `dependencies.py` in the presentation layer). The repository performs the query or persists data and returns domain objects.
 
-  If the app uses a different database or an external API, the repository could call the appropriate endpoints, parse the response, and map it to domain entities. For instance, if `example` were a module that fetched data from an external service, the repository could use `httpx` (included via `fastapi[standard]`) to make requests and build entities.
+  If the application uses a different database or an external API, this repository could call the appropriate endpoints, parse the response, and transform it into domain entities. For instance, if `example` were a module that fetches data from an external service, the repository might use `httpx` (included via `fastapi[standard]`) to make requests and then build entities.
 
-  **Important:** The repository is part of infrastructure, so it can and should know about both the infra models (`FooModel`, or external API details) and the domain entities (`Foo`). It acts as an adapter between the two worlds. Logic here should be limited to data operations (queries, conversions), not business rules (those belong in the domain/application).
+  **Important:** The repository is part of infrastructure, so it can and should know both infrastructure models (`FooModel`, or external API details) and domain entities (`Foo`). It acts as an adapter converting between the two worlds. The logic here should be limited to data operations (queries, conversions), not business rules (those belong in domain/application).
 
 ###### Presentation
 
-The `presentation` subfolder defines how the module exposes its features to the "outside world", in this case through a web API (FastAPI). Here you’ll find the **routers** (controllers) with the HTTP endpoints, the **Pydantic schemas** for validation/serialization, and the module-specific **dependencies** (e.g., repository or auth providers used by the endpoints).
+The `presentation` sub-folder defines how the module exposes its functionalities to the outside world—here via a web API (FastAPI). It houses the **routers** (controllers) with HTTP endpoints, the **Pydantic schemas** for validation/serialization, and the module-specific **dependencies** (e.g., repository providers or authentication providers for use in the endpoints).
 
-* **`routers.py`:** Defines the API routes (endpoints) for this module. Usually, we create a `router = APIRouter()` object and decorate Python functions with HTTP verbs (@router.get, @router.post, etc.) for each required endpoint.
+* **`routers.py`:** Defines the API routes (endpoints) for this module. Typically we create a `router = APIRouter()` object and decorate Python functions with HTTP verbs (@router.get, @router.post, etc.) for each needed endpoint.
 
-  Each endpoint function should:
+  Each endpoint function should handle:
 
-  * Receive input (path params, query params, body) already validated (using the schemas, see below).
-  * Obtain needed instances via dependencies (e.g., a repository or the authenticated user).
-  * Call the appropriate use case in the application layer, passing necessary data.
-  * Handle business exceptions raised by use cases (e.g., convert a "not found" exception into HTTP 404, or validation error into 400).
-  * Return the result (converting to an output schema if complex object, or returning basic types that FastAPI auto-converts).
+  * Receiving validated inputs (path params, query params, body) using the schemas (see below).
+  * Obtaining required instances via dependencies (e.g., a repository or the current authenticated user).
+  * Calling the appropriate use case in the application layer, passing the necessary data.
+  * Handling business exceptions raised by the use cases (e.g., converting a “not found” exception into an HTTP 404, or a validation error into 400).
+  * Returning the result (converting to an output schema if it’s a complex object, or simply returning basic types that FastAPI will convert automatically).
 
-  Example for a GET endpoint to list Foos:
+  For example, suppose a GET endpoint to list Foos:
 
   ```python
   from fastapi import APIRouter, Depends, HTTPException
   from app.modules.example.presentation.schemas import FooOut
-  from app.modules.example.application.use_cases import ListarFoosUseCase
+  from app.modules.example.application.use_cases import ListFoosUseCase
   from app.modules.example.presentation.dependencies import get_foo_repository
 
   router = APIRouter(prefix="/foo", tags=["Foo"])
 
   @router.get("/", response_model=list[FooOut])
-  def listar_foos(repo = Depends(get_foo_repository)):
-      use_case = ListarFoosUseCase(repo)
+  def list_foos(repo = Depends(get_foo_repository)):
+      use_case = ListFoosUseCase(repo)
       foos = use_case.execute()
       return foos  # FastAPI will convert each Foo via FooOut schema
   ```
 
-  In this pseudocode:
+  In this pseudo-code:
 
-  * We use `Depends(get_foo_repository)` to inject a concrete repository instance (from `infrastructure`) matching the expected interface.
-  * We instantiate the `ListarFoosUseCase` use case, passing in the repository.
-  * We execute it and get the result (a list of `Foo` entities).
+  * We use `Depends(get_foo_repository)` to inject a concrete repository instance (defined in `infrastructure`) that satisfies the expected interface.
+  * We instantiate the `ListFoosUseCase`, providing the repository.
+  * We execute and obtain the result (a list of `Foo` entities).
   * We return that list; FastAPI uses the `response_model` `list[FooOut]` to filter and serialize the response as defined in the schema.
-  * Error handling: if `execute()` raises any exception, we could catch it and raise an appropriate `HTTPException`.
+  * Error handling: if `execute()` raised an exception we could catch it and raise the corresponding `HTTPException`.
 
-  The `routers.py` file can include multiple routes (GET, POST, PUT, DELETE) depending on the operations the module supports. If there are many routes, we can split them into multiple files (e.g., `routers_public.py`, `routers_admin.py`) and include them all in a main APIRouter, but the template keeps a single file for simplicity.
+  The `routers.py` file can contain multiple routes (GET, POST, PUT, DELETE) according to the module’s operations. If the routes become numerous, we can split into multiple files (e.g., `routers_public.py`, `routers_admin.py`) and include them all in a main APIRouter, but the template keeps a single file for simplicity.
 
   Finally, in `app.py`, the example module’s router would be included in the main app:
 
@@ -430,7 +505,21 @@ The `presentation` subfolder defines how the module exposes its features to the 
   app.include_router(example_router)
   ```
 
-  Possibly with a prefix (e.g., global `/api/v1`, or module-specific prefixes if desired).
+  possibly with a prefix (e.g., a global `/api/v1`, or specific prefixes if desired).
+
+* **`docs.py`:** This file is optional and can be used to separate documentation specific to the module, such as endpoint descriptions, usage examples, or additional route details for better code organization when the docs are extensive. However, in many cases endpoint documentation can be done directly in the routes using docstrings and FastAPI annotations, so this file can remain empty or be omitted.
+
+* **`exceptions.py`:** Defines exceptions specific to the module that may be raised by endpoints or use cases. These exceptions can signal domain-specific errors (e.g., “Foo already exists,” “Foo not found”) and can be caught by the global exception handler (`core/exception_handler.py`) to return appropriate HTTP responses.
+
+  For example, we might have:
+
+  ```python
+  class FooAlreadyExistsException(Exception):
+      """Exception raised when a Foo already exists."""
+      pass
+  ```
+
+  Then, within use cases or routes, we can raise this exception when needed, and the global handler will turn it into an HTTP 409 Conflict response.
 
 * **`schemas.py`:** Defines the **Pydantic Schemas** used to validate and serialize input and output data for this module’s API endpoints. Pydantic (v2, integrated via FastAPI) allows creation of model classes representing the expected/returned JSON structure, with automatic type validation.
 

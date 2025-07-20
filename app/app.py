@@ -1,30 +1,97 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import ORJSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
+
+from starlette.exceptions import HTTPException
+from app.core.exception_handler import (
+    validation_exception_handler,
+    http_exception_handler,
+    internal_exception_handler,
+)
+from app.core.settings import settings
+from app.core.middleware import log_request_middleware, ResponseFormattingMiddleware
+from app.core.resources import lifespan
+from app.modules.example.presentation.routers import router as example_router
 
 app = FastAPI(
-    title="FastAPI Clean Architecture DDD Template",
-    summary="Python FastAPI backend template, organized by Clean Architecture layers (domain, application, infrastructure, presentation) and DDD principles. Includes dependency management, Docker support, testing boilerplate, CI-friendly setup and best practices, modular scaffolding to jump-start new projects and ensure long-term maintainability.",
-    description="**Your project description goes here. This template is designed to help you build scalable and maintainable applications using FastAPI, following Clean Architecture and Domain-Driven Design principles.**",
-    version="1.0.0",
-    openapi_tags=[
-        {
-            "name": "Example Tag",
-            "description": "Example operations related to a specific feature or module in your application. This tag can be used to group related endpoints together for better organization and clarity.",
-        },
-    ],
-    contact={
-        "name": "Bruno Tanabe",
-        "url": "https://www.linkedin.com/in/tanabebruno/",
-        "email": "tanabebruno@gmail.com",
-    },
-    license_info={
-        "name": "MIT License",
-        "identifier": "MIT",
-        "url": "https://github.com/BrunoTanabe/microservice-accounts/blob/main/LICENSE",
-    },
-    terms_of_service="https://github.com/BrunoTanabe/",
-    # TODO: Implement default response class, middlewares, exception handlers, and other configurations
+    title=settings.APPLICATION_TITLE,
+    debug=settings.ENVIRONMENT_DEBUG,
     swagger_ui_parameters={
+        "persistAuthorization": True,
         "displayRequestDuration": True,
         "filter": True,
     },
+    default_response_class=ORJSONResponse,
+    lifespan=lifespan,
 )
+
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, internal_exception_handler)
+
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=log_request_middleware)
+app.add_middleware(ResponseFormattingMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST"],
+    allow_headers=[settings.SECURITY_API_KEY_HEADER],
+)
+
+routers = [
+    example_router,
+]
+
+for router in routers:
+    app.include_router(router)
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=settings.APPLICATION_TITLE,
+        summary=settings.APPLICATION_SUMMARY,
+        description=settings.APPLICATION_DESCRIPTION,
+        version=settings.APPLICATION_VERSION,
+        tags=[
+            {
+                "name": "example",
+                "description": "Example module for demonstrating FastAPI features.",
+            },
+        ],
+        contact={
+            "name": settings.APPLICATION_CONTACT_NAME,
+            "url": settings.APPLICATION_CONTACT_URL,
+            "email": settings.APPLICATION_CONTACT_EMAIL,
+            "phone": settings.APPLICATION_CONTACT_PHONE,
+        },
+        routes=app.routes,
+    )
+
+    openapi_schema["components"]["securitySchemes"] = {
+        settings.SECURITY_SCHEME_NAME: {
+            "type": "apiKey",
+            "in": "header",
+            "name": settings.SECURITY_API_KEY_HEADER,
+            "description": "API Key necessary to access the API endpoints.",
+        }
+    }
+
+    for path in openapi_schema["paths"].values():
+        for operation in path.values():
+            operation.setdefault("security", []).append(
+                {settings.SECURITY_SCHEME_NAME: []}
+            )
+
+    app.openapi_schema = openapi_schema
+    return openapi_schema
+
+
+app.openapi = custom_openapi
