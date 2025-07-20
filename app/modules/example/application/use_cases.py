@@ -26,5 +26,5 @@ class ExampleUseCases:
         except StandardException:
             raise
         except Exception as e:
-            logger.error("An error occurred in the hello use case: {}", e)
+            logger.error("fAn error occurred in the hello use case: {e}")
             raise ExampleUseCasesException()
