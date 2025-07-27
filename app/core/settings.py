@@ -41,6 +41,15 @@ class Settings(BaseSettings):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        for field_name, field_info in self.model_fields.items():
+            value = getattr(self, field_name)
+            if isinstance(value, str) and len(value) >= 2:
+                if (value.startswith('"') and value.endswith('"')) or (
+                    value.startswith("'") and value.endswith("'")
+                ):
+                    setattr(self, field_name, value[1:-1])
+
         if self.ENVIRONMENT not in ["DEV", "HOMOLOG", "MAIN"]:
             raise ValueError(
                 f"Invalid execution environment: {self.ENVIRONMENT}. The environment must be DEV, HOMOLOG, or MAIN (case-sensitive)."
