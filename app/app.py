@@ -15,6 +15,7 @@ from app.core.settings import settings
 from app.core.middleware import log_request_middleware, ResponseFormattingMiddleware
 from app.core.resources import lifespan
 from app.modules.example.presentation.routers import router as example_router
+from app.modules.health.presentation.routers import router as health_router
 
 app = FastAPI(
     title=settings.APPLICATION_TITLE,
@@ -45,6 +46,7 @@ app.add_middleware(
 
 routers = [
     example_router,
+    health_router,
 ]
 
 for router in routers:
