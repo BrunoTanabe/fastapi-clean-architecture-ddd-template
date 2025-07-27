@@ -22,7 +22,7 @@ async def log_request_middleware(request: Request, call_next: Callable) -> Respo
 
     with logger.contextualize(request_id=request_id):
         try:
-            logger.debug(
+            logger.info(
                 "Received request",
                 method=request.method,
                 path=request.url.path,

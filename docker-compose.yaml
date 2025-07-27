@@ -1,0 +1,12 @@
+name: "fastapi-clean-architecture-ddd-template"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastapi-clean-architecture-ddd-template
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
