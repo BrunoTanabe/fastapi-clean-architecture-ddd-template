@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from http.client import HTTPException
 from secrets import token_urlsafe
 from time import time
 
@@ -37,12 +36,22 @@ async def log_request_middleware(request: Request, call_next: Callable) -> Respo
             response = await call_next(request)
         except Exception as exc:
             exception = exc
-            response = HTTPException(CoreException())
+            core_exc = CoreException()
+            response = ORJSONResponse(
+                status_code=core_exc.status_code,
+                content={
+                    "code": core_exc.status_code,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "timestamp": _current_timestamp(),
+                    "details": {"message": core_exc.message, "data": core_exc.data},
+                },
+            )
         final_time = time()
         elapsed = final_time - start_time
         response_dict = {
             "status": response.status_code,
-            "headers": response.headers.raw,
+            "headers": response.headers.raw if hasattr(response, "headers") else {},
         }
 
         atoms = AccessLogAtoms(request, response_dict, final_time)  # type: ignore
