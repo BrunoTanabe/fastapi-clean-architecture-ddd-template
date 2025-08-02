@@ -29,5 +29,5 @@ async def hello(
     except StandardException:
         raise
     except Exception as e:
-        logger.error(f"An error occurred in the hello endpoint: {e}")
+        logger.opt(exception=e).error("An error occurred in the hello endpoint.")
         raise ExampleException()

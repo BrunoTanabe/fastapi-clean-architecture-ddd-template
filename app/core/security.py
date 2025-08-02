@@ -4,6 +4,8 @@ from fastapi.security import APIKeyHeader
 
 from app.core.settings import settings
 
+# API Key Authentication
+
 api_key_header = APIKeyHeader(
     name=settings.SECURITY_API_KEY_HEADER,
     scheme_name=settings.SECURITY_SCHEME_NAME,

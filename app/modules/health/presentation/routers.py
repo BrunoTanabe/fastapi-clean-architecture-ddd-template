@@ -32,4 +32,12 @@ async def health_check() -> HealthCheckResponse:
 
 @router.get("/", **redirect_root_docs)
 async def redirect_root() -> RedirectResponse:
-    return RedirectResponse(url="/docs")
+    try:
+        return RedirectResponse(url="/docs")
+    except StandardException:
+        raise
+    except Exception as e:
+        logger.opt(exception=e).error(
+            "An error occurred in the redirect_root endpoint."
+        )
+        raise HealthCheckStandardException()
