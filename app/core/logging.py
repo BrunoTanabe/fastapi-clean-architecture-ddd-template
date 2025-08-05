@@ -4,8 +4,8 @@ import orjson
 import stackprinter
 from loguru import logger
 from pygments import highlight
-from pygments.formatters import Terminal256Formatter
-from pygments.lexers import JsonLexer
+from pygments.formatters.terminal256 import Terminal256Formatter
+from pygments.lexers.data import JsonLexer
 
 from app.core.settings import settings
 
