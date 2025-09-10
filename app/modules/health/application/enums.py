@@ -1,4 +1,3 @@
-# Enum com os tipos de saúde disponíveis no sistema.
 from enum import Enum
 
 

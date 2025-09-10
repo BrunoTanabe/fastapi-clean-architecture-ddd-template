@@ -65,7 +65,7 @@ router_docs = {
     },
 }
 
-health_check_docs = {
+check_docs = {
     "summary": "Endpoint for checking the health of the application",
     "description": "This endpoint is used to verify that the application is running and healthy. It returns a simple status message.",
     "response_description": "Returns a status message indicating the health of the application.",
