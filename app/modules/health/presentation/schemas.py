@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.modules.health.application.enums import HealthType
 
 
-class HealthCheckResponse(BaseModel):
+# RESPONSE
+class HealthResponse(BaseModel):
     status: HealthType = Field(
         title="Health Status",
         description=f"Indicates the health status of the system. Possible values are: {', '.join(HealthType.choices())}.",

@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Example:
-    # Request
+    # REQUEST
     name: str
 
-    # Response
+    # RESPONSE
     message: str | None = field(default=None)

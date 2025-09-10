@@ -4,6 +4,7 @@ from typing import Union, List
 from app.core.exceptions import StandardException
 
 
+# GENERIC EXCEPTIONS
 class ExampleException(StandardException):
     def __init__(
         self,
@@ -38,6 +39,7 @@ class ExampleUseCasesException(StandardException):
         )
 
 
+# SPECIFIC EXCEPTIONS
 class ExampleNameNotProvidedException(StandardException):
     def __init__(
         self,

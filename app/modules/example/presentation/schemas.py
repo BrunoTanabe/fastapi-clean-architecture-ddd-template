@@ -3,6 +3,7 @@ import re
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+# REQUEST
 class ExampleRequest(BaseModel):
     name: str = Field(
         title="Individual's name (Required)",
@@ -26,7 +27,6 @@ class ExampleRequest(BaseModel):
     model_config = ConfigDict(
         title="ExampleRequest",
         str_strip_whitespace=True,
-        str_to_lower=True,
         str_min_length=3,
         extra="forbid",
         validate_default=True,
@@ -52,6 +52,7 @@ class ExampleRequest(BaseModel):
     )
 
 
+# RESPONSE
 class ExampleResponse(BaseModel):
     message: str = Field(
         title="Response message (Required)",
@@ -68,7 +69,6 @@ class ExampleResponse(BaseModel):
     model_config = ConfigDict(
         title="ExampleResponse",
         str_strip_whitespace=True,
-        str_to_lower=True,
         str_min_length=3,
         extra="forbid",
         validate_default=True,

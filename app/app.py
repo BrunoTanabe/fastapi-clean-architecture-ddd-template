@@ -64,7 +64,7 @@ def custom_openapi():
         version=settings.APPLICATION_VERSION,
         tags=[
             {
-                "name": "example",
+                "name": "Example",
                 "description": "Example module for demonstrating FastAPI features.",
             },
         ],

@@ -2,11 +2,12 @@ from http import HTTPStatus
 from fastapi.responses import RedirectResponse
 
 from app.core.schemas import StandardResponse
-from app.modules.health.presentation.schemas import HealthCheckResponse
+from app.modules.health.presentation.schemas import HealthResponse
 
+# MODULE DOCS
 router_docs = {
     "prefix": "",
-    "tags": ["Health Check"],
+    "tags": ["Health"],
     "responses": {
         401: {
             "model": StandardResponse,
@@ -65,7 +66,8 @@ router_docs = {
     },
 }
 
-health_check_docs = {
+# ENDPOINT DOCS
+check_docs = {
     "summary": "Endpoint for checking the health of the application",
     "description": "This endpoint is used to verify that the application is running and healthy. It returns a simple status message.",
     "response_description": "Returns a status message indicating the health of the application.",
@@ -74,7 +76,7 @@ health_check_docs = {
     "responses": {
         200: {
             "description": "Successful analysis of infractor eligibility",
-            "model": StandardResponse[HealthCheckResponse],
+            "model": StandardResponse[HealthResponse],
             "content": {
                 "application/json": {
                     "examples": {

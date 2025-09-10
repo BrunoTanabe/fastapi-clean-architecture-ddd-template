@@ -7,9 +7,10 @@ from app.core.security import api_key_auth
 from app.modules.example.presentation.schemas import ExampleResponse
 
 
+# MODULE DOCS
 example_docs = {
     "prefix": "/api/v1/example",
-    "tags": ["example"],
+    "tags": ["Example"],
     "dependencies": [Security(api_key_auth)],
     "responses": {
         401: {
@@ -69,6 +70,7 @@ example_docs = {
     },
 }
 
+# ENDPOINT DOCS
 example_request_docs = {
     "summary": "Endpoint Example",
     "description": "This endpoint returns a greeting message.",
