@@ -11,8 +11,11 @@ from app.modules.health.presentation.docs import (
     check_docs,
     redirect_root_docs,
 )
-from app.modules.health.presentation.exceptions import HealthException
-from app.modules.health.presentation.schemas import HealthCheckResponse
+from app.modules.health.presentation.exceptions import (
+    HealthException,
+    RedirectException,
+)
+from app.modules.health.presentation.schemas import HealthResponse
 
 router = APIRouter(**router_docs)
 
@@ -20,7 +23,7 @@ router = APIRouter(**router_docs)
 @router.get("/health", **check_docs)
 async def check(
     use_case: HealthUseCases = Depends(get_health_use_cases),
-) -> HealthCheckResponse:
+) -> HealthResponse:
     try:
         response_domain = await use_case.check()
         output = domain_to_health_response(response_domain)
@@ -35,4 +38,12 @@ async def check(
 
 @router.get("/", **redirect_root_docs)
 async def redirect_root() -> RedirectResponse:
-    return RedirectResponse(url="/docs")
+    try:
+        return RedirectResponse(url="/docs")
+    except StandardException:
+        raise
+    except Exception as e:
+        logger.opt(exception=e).error(
+            "An error occurred in the redirect_root endpoint."
+        )
+        raise RedirectException()

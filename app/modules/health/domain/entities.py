@@ -7,4 +7,5 @@ from app.modules.health.application.enums import HealthType
 
 @dataclass
 class Health:
+    # RESPONSE
     status: HealthType
