@@ -1,4 +1,7 @@
 from datetime import timezone, datetime
+from zoneinfo import ZoneInfo
+
+BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 def _current_timestamp() -> str:

@@ -12,8 +12,10 @@ from app.modules.example.presentation.exceptions import (
 class ExampleUseCases:
     async def hello(self, example: Example) -> Example:
         try:
+            logger.info("Starting hello use case.")
+
             if not example.name:
-                logger.info("Example name not provided, raising exception.")
+                logger.warning("Example name not provided, raising exception.")
 
                 raise ExampleNameNotProvidedException(
                     message="Example name must be provided.",
@@ -21,8 +23,9 @@ class ExampleUseCases:
                 )
 
             example.message = f"Hello {example.name}!"
-            return example
 
+            logger.info("Hello use case completed successfully.")
+            return example
         except StandardException:
             raise
         except Exception as e:

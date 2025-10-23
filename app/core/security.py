@@ -4,7 +4,7 @@ from fastapi.security import APIKeyHeader
 
 from app.core.settings import settings
 
-# API Key Authentication
+# api key authentication simple example, using an API key from the environment settings
 
 api_key_header = APIKeyHeader(
     name=settings.SECURITY_API_KEY_HEADER,

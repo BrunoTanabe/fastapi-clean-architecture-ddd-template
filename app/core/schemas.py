@@ -1,6 +1,8 @@
-from typing import TypeVar, Generic, Optional
-from pydantic import BaseModel, Field, ConfigDict
+import re
+from typing import TypeVar, Generic, Optional, List, Set
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
+from app.core.enums import ResponseMessages
 
 T = TypeVar("T")
 
@@ -38,16 +40,16 @@ class StandardDetailsResponse(BaseModel, Generic[T]):
         json_schema_extra={
             "description": "Standard details response schema for API endpoints, including a message and optional data.",
             "example": {
-                "message": "Process completed successfully.",
+                "message": ResponseMessages.SUCCESS.value,
                 "data": {"key": "value"},
             },
             "examples": [
                 {
-                    "message": "Unable to process the request.",
+                    "message": ResponseMessages.VALIDATION_ERROR.value,
                     "data": {"field": "Error message for the field."},
                 },
                 {
-                    "message": "Process completed successfully.",
+                    "message": ResponseMessages.SUCCESS.value,
                     "data": {"key": "value", "another_key": 123},
                 },
             ],
@@ -110,11 +112,11 @@ class StandardResponse(BaseModel, Generic[T]):
         ),
         examples=[
             {
-                "message": "Request processed successfully.",
+                "message": ResponseMessages.SUCCESS.value,
                 "data": {"key": "value"},
             },
             {
-                "message": "Unable to process the request.",
+                "message": ResponseMessages.VALIDATION_ERROR.value,
                 "data": {"field": "Error message for the field."},
             },
         ],
@@ -144,7 +146,7 @@ class StandardResponse(BaseModel, Generic[T]):
                 "path": "/api/v1/resource",
                 "timestamp": "2024-05-01T12:00:00Z",
                 "details": {
-                    "message": "Request processed successfully.",
+                    "message": ResponseMessages.SUCCESS.value,
                     "data": {"key": "value"},
                 },
             },

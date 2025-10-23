@@ -1,7 +1,9 @@
 from http import HTTPStatus
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, List
 
 from fastapi import HTTPException
+
+from app.core.enums import ResponseMessages
 
 
 class StandardException(HTTPException):
@@ -18,7 +20,7 @@ class StandardException(HTTPException):
 
 class CoreException(StandardException):
     def __init__(self) -> None:
-        message = "Internal processing error"
+        message = ResponseMessages.INTERNAL_ERROR.value
         errors = ["An unexpected error occurred while processing the request."]
 
         super().__init__(

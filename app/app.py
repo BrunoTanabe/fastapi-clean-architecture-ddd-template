@@ -3,9 +3,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import ORJSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
-from starlette.exceptions import HTTPException
+from fastapi.exceptions import HTTPException
 from app.core.exception_handler import (
     validation_exception_handler,
     http_exception_handler,
@@ -19,7 +19,7 @@ from app.modules.health.presentation.routers import router as health_router
 
 app = FastAPI(
     title=settings.APPLICATION_TITLE,
-    debug=settings.ENVIRONMENT_DEBUG,
+    debug=settings.APPLICATION_ENVIRONMENT_DEBUG,
     swagger_ui_parameters={
         "persistAuthorization": True,
         "displayRequestDuration": True,
@@ -38,10 +38,10 @@ app.add_middleware(BaseHTTPMiddleware, dispatch=log_request_middleware)
 app.add_middleware(ResponseFormattingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[str(origin) for origin in settings.SECURITY_BACKEND_ALLOW_ORIGINS],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=[settings.SECURITY_API_KEY_HEADER],
+    allow_methods=[str(origin) for origin in settings.SECURITY_BACKEND_ALLOW_METHODS],
+    allow_headers=[str(origin) for origin in settings.SECURITY_BACKEND_ALLOW_HEADERS],
 )
 
 routers = [
@@ -67,6 +67,10 @@ def custom_openapi():
                 "name": "Example",
                 "description": "Example module for demonstrating FastAPI features.",
             },
+            {
+                "name": "Health",
+                "description": "Endpoints for checking the health status of the application.",
+            },
         ],
         contact={
             "name": settings.APPLICATION_CONTACT_NAME,
@@ -76,21 +80,6 @@ def custom_openapi():
         },
         routes=app.routes,
     )
-
-    openapi_schema["components"]["securitySchemes"] = {
-        settings.SECURITY_SCHEME_NAME: {
-            "type": "apiKey",
-            "in": "header",
-            "name": settings.SECURITY_API_KEY_HEADER,
-            "description": "API Key necessary to access the API endpoints.",
-        }
-    }
-
-    for path in openapi_schema["paths"].values():
-        for operation in path.values():
-            operation.setdefault("security", []).append(
-                {settings.SECURITY_SCHEME_NAME: []}
-            )
 
     app.openapi_schema = openapi_schema
     return openapi_schema
