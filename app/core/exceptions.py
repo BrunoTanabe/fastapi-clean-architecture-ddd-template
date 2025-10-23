@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 

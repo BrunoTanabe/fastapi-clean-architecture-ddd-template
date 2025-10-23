@@ -1,6 +1,5 @@
-import re
-from typing import TypeVar, Generic, Optional, List, Set
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import TypeVar, Generic, Optional
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.enums import ResponseMessages
 

@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${APPLICATION_PORT}:3000"
+      - "${APPLICATION_PORT}:8000"
     volumes:
       - ./:/app
     restart: unless-stopped
