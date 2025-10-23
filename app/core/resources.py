@@ -11,8 +11,8 @@ from app.core.settings import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator:  # noqa: ARG001
-    await startup()
     try:
+        await startup()
         yield
     finally:
         await shutdown()
@@ -20,8 +20,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator:  # noqa: ARG001
 
 async def startup() -> None:
     init_loguru()
-
     logger.info(f"Starting {settings.APPLICATION_TITLE}...")
+
     if settings.ENVIRONMENT == "DEV":
         logger.warning(
             "Running in development mode, this is not recommended for production!"

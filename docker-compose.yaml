@@ -5,8 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: fastapi-clean-architecture-ddd-template
     ports:
-      - "8000:8000"
+      - "${APPLICATION_PORT}:3000"
     volumes:
-      - .:/app
+      - ./:/app
+    restart: unless-stopped
+    container_name: fastapi-clean-architecture-ddd-template

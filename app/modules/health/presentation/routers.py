@@ -8,7 +8,7 @@ from app.modules.health.domain.mappers import domain_to_health_response
 from app.modules.health.presentation.dependencies import get_health_use_cases
 from app.modules.health.presentation.docs import (
     router_docs,
-    check_docs,
+    health_docs,
     redirect_root_docs,
 )
 from app.modules.health.presentation.exceptions import (
@@ -17,11 +17,12 @@ from app.modules.health.presentation.exceptions import (
 )
 from app.modules.health.presentation.schemas import HealthResponse
 
+
 router = APIRouter(**router_docs)
 
 
-@router.get("/health", **check_docs)
-async def check(
+@router.get("/health", **health_docs)
+async def health(
     use_case: HealthUseCases = Depends(get_health_use_cases),
 ) -> HealthResponse:
     try:

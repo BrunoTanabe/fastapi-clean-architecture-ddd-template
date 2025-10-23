@@ -1,3 +1,4 @@
+from pydantic import AnyHttpUrl, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,12 +20,19 @@ class Settings(BaseSettings):
     APPLICATION_CONTACT_URL: str
     APPLICATION_CONTACT_EMAIL: str
     APPLICATION_CONTACT_PHONE: str
-
-    # ENVIRONMENT
-    ENVIRONMENT: str
-    ENVIRONMENT_DEBUG: bool = False
+    APPLICATION_ENVIRONMENT: str
+    APPLICATION_PORT: int
+    APPLICATION_ENVIRONMENT_DEBUG: bool = False
+    APPLICATION_CONNECT_TIMEOUT_SECONDS: int = 30
+    APPLICATION_URL: AnyHttpUrl
 
     # SECURITY
+    SECURITY_BACKEND_ALLOW_ORIGINS: list[str | AnyHttpUrl]
+    SECURITY_BACKEND_ALLOW_HEADERS: list[str] = []
+    SECURITY_BACKEND_ALLOW_METHODS: list[str] = []
+    SECURITY_BACKEND_SCHEME_NAME: str
+    SECURITY_BACKEND_SCHEME_DESCRIPTION: str
+    SECURITY_BACKEND_HTTPS_ONLY: bool = True
     SECURITY_API_KEY_HEADER: str
     SECURITY_API_KEY_HEADER_DESCRIPTION: str
     SECURITY_SCHEME_NAME: str
@@ -39,6 +47,13 @@ class Settings(BaseSettings):
     LOGS_REQUEST_ID_LENGTH: int
     LOGS_PYGMENTS_STYLE: str = "monokai"
 
+    @computed_field
+    @property
+    def SECURITY_BACKEND_USER_ALLOWED_PATHS(self) -> list[dict[str, str]]:
+        return [
+            {"endpoint": "/api/v2/example", "method": "POST"},
+        ]
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -46,20 +61,22 @@ class Settings(BaseSettings):
             value = getattr(self, field_name)
             if isinstance(value, str) and len(value) >= 2:
                 if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
+                        value.startswith("'") and value.endswith("'")
                 ):
                     setattr(self, field_name, value[1:-1])
 
-        if self.ENVIRONMENT not in ["DEV", "HOMOLOG", "MAIN"]:
+        if self.APPLICATION_ENVIRONMENT not in ["DEV", "HOMOLOG", "MAIN"]:
             raise ValueError(
-                f"Invalid execution environment: {self.ENVIRONMENT}. The environment must be DEV, HOMOLOG, or MAIN (case-sensitive)."
+                f"Invalid execution environment: {self.APPLICATION_ENVIRONMENT}. The environment must be DEV, HOMOLOG, or MAIN (case-sensitive)."
                 f"Please check your .env file."
             )
 
-        if self.ENVIRONMENT == "DEV":
-            self.ENVIRONMENT_DEBUG = True
+        if self.APPLICATION_ENVIRONMENT == "DEV":
+            self.APPLICATION_ENVIRONMENT_DEBUG = True
+            self.SECURITY_BACKEND_HTTPS_ONLY = False
         else:
-            self.ENVIRONMENT_DEBUG = False
+            self.APPLICATION_ENVIRONMENT_DEBUG = False
+            self.SECURITY_BACKEND_HTTPS_ONLY = True
 
 
 settings = Settings()

@@ -8,7 +8,12 @@ from app.modules.health.presentation.exceptions import HealthUseCasesException
 class HealthUseCases:
     async def check(self) -> HealthType:
         try:
-            return HealthType.OK
+            logger.info("Starting health check use case.")
+
+            status = HealthType.OK
+
+            logger.info("Health check use case completed successfully.")
+            return status
         except StandardException:
             raise
         except Exception as e:

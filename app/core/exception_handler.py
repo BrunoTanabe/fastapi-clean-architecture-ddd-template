@@ -6,6 +6,7 @@ from fastapi.responses import ORJSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette import status
 
+from app.core.enums import ResponseMessages
 from app.core.utils import _current_timestamp
 
 
@@ -14,6 +15,7 @@ async def validation_exception_handler(
 ) -> ORJSONResponse:
     err = cast(RequestValidationError, exc)
     errors = {e["loc"][-1]: e["msg"] for e in err.errors()}
+
     return ORJSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -21,7 +23,10 @@ async def validation_exception_handler(
             "method": request.method,
             "path": request.url.path,
             "timestamp": _current_timestamp(),
-            "details": {"message": "Form validation error", "data": errors},
+            "details": {
+                "message": ResponseMessages.VALIDATION_ERROR.value,
+                "data": errors,
+            },
         },
     )
 
@@ -33,17 +38,17 @@ async def http_exception_handler(request: Request, exc: Exception) -> ORJSONResp
         data = getattr(err, "data")
     else:
         if err.status_code == status.HTTP_401_UNAUTHORIZED:
-            message = "Authentication error"
+            message = ResponseMessages.UNAUTHORIZED_ERROR.value
         elif err.status_code == status.HTTP_403_FORBIDDEN:
-            message = "Authorization error"
+            message = ResponseMessages.AUTHORIZATION_ERROR.value
         elif err.status_code == status.HTTP_404_NOT_FOUND:
-            message = "Resource not found"
+            message = ResponseMessages.RESOURCE_NOT_FOUND.value
         elif err.status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
-            message = "Method error"
+            message = ResponseMessages.METHOD_ERROR.value
         elif err.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
-            message = "Form validation error"
+            message = ResponseMessages.VALIDATION_ERROR.value
         else:
-            message = "Internal processing error"
+            message = ResponseMessages.INTERNAL_ERROR.value
         data = {"error": str(err.detail)}
 
     return ORJSONResponse(
@@ -72,7 +77,7 @@ async def internal_exception_handler(
             "path": request.url.path,
             "timestamp": _current_timestamp(),
             "details": {
-                "message": "Internal Server Error",
+                "message": ResponseMessages.INTERNAL_ERROR.value,
                 "data": {"error": "An unexpected error occurred."},
             },
         },

@@ -12,7 +12,7 @@ from app.core.settings import settings
 lexer = JsonLexer()
 formatter = Terminal256Formatter(style=settings.LOGS_PYGMENTS_STYLE)
 orjson_options = orjson.OPT_NAIVE_UTC
-if settings.ENVIRONMENT_DEBUG:
+if settings.APPLICATION_ENVIRONMENT_DEBUG:
     orjson_options |= orjson.OPT_INDENT_2
 
 
@@ -27,7 +27,7 @@ def serialize(record: dict) -> str:
     if record["exception"]:
         subset["exception"] = stackprinter.format(record["exception"])
     formatted_json = orjson.dumps(subset, default=str, option=orjson_options).decode()
-    if settings.ENVIRONMENT_DEBUG:
+    if settings.APPLICATION_ENVIRONMENT_DEBUG:
         formatted_json = highlight(formatted_json, lexer, formatter)
     return formatted_json
 

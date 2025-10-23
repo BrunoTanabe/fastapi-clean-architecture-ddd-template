@@ -12,10 +12,11 @@ from app.modules.example.presentation.docs import example_docs, example_request_
 from app.modules.example.presentation.exceptions import ExampleException
 from app.modules.example.presentation.schemas import ExampleRequest, ExampleResponse
 
+
 router = APIRouter(**example_docs)
 
 
-@router.post("/", **example_request_docs)
+@router.post("", **example_request_docs)
 async def hello(
     payload: ExampleRequest,
     use_case: ExampleUseCases = Depends(get_example_use_cases),
