@@ -22,7 +22,7 @@ async def startup() -> None:
     init_loguru()
     logger.info(f"Starting {settings.APPLICATION_TITLE}...")
 
-    if settings.ENVIRONMENT == "DEV":
+    if settings.APPLICATION_ENVIRONMENT == "DEV":
         logger.warning(
             "Running in development mode, this is not recommended for production!"
         )

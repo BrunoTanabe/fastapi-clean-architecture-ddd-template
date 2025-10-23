@@ -35,7 +35,6 @@ class Settings(BaseSettings):
     SECURITY_BACKEND_HTTPS_ONLY: bool = True
     SECURITY_API_KEY_HEADER: str
     SECURITY_API_KEY_HEADER_DESCRIPTION: str
-    SECURITY_SCHEME_NAME: str
     SECURITY_DEFAULT_API_KEY: str
     SECURITY_DEFAULT_API_KEY_NAME: str
     SECURITY_DEFAULT_API_KEY_DESCRIPTION: str
@@ -61,7 +60,7 @@ class Settings(BaseSettings):
             value = getattr(self, field_name)
             if isinstance(value, str) and len(value) >= 2:
                 if (value.startswith('"') and value.endswith('"')) or (
-                        value.startswith("'") and value.endswith("'")
+                    value.startswith("'") and value.endswith("'")
                 ):
                     setattr(self, field_name, value[1:-1])
 

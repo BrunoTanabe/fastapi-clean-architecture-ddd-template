@@ -8,7 +8,7 @@ from app.core.settings import settings
 
 api_key_header = APIKeyHeader(
     name=settings.SECURITY_API_KEY_HEADER,
-    scheme_name=settings.SECURITY_SCHEME_NAME,
+    scheme_name=settings.SECURITY_BACKEND_SCHEME_NAME,
     description=settings.SECURITY_API_KEY_HEADER_DESCRIPTION,
     auto_error=False,
 )
