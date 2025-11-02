@@ -44,6 +44,11 @@ app.add_middleware(
     allow_headers=[str(origin) for origin in settings.SECURITY_BACKEND_ALLOW_HEADERS],
 )
 
+if settings.APPLICATION_ENVIRONMENT == "MAIN":
+    app.openapi_url = None
+    app.docs_url = None
+    app.redoc_url = None
+
 routers = [
     example_router,
     health_router,
