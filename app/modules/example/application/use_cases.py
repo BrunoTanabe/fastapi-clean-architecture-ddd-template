@@ -1,33 +1,28 @@
 from loguru import logger
 
-from app.core.exceptions import StandardException
-
 from app.modules.example.domain.entities import Example
 from app.modules.example.presentation.exceptions import (
-    ExampleNameNotProvidedException,
-    ExampleUseCasesException,
+    ExampleException,
+)
+from app.modules.shared.domain.entities import DomainError
+from app.modules.shared.presentation.exceptions import (
+    StandardException,
+    DomainException,
 )
 
 
 class ExampleUseCases:
-    async def hello(self, example: Example) -> Example:
+    @staticmethod
+    async def hello(example: Example) -> Example:
         try:
-            logger.info("Starting hello use case.")
+            logger.debug("Starting hello use case.")
 
-            if not example.name:
-                logger.warning("Example name not provided, raising exception.")
-
-                raise ExampleNameNotProvidedException(
-                    message="Example name must be provided.",
-                    errors="The 'name' field is required for processing the example.",
-                )
-
-            example.message = f"Hello {example.name}!"
-
-            logger.info("Hello use case completed successfully.")
+            logger.debug("Hello use case completed successfully.")
             return example
         except StandardException:
             raise
+        except DomainError as e:
+            raise DomainException(e)
         except Exception as e:
-            logger.opt(exception=e).error(f"An error occurred in the hello use case.")
-            raise ExampleUseCasesException()
+            logger.opt(exception=e).error("An error occurred in the hello use case.")
+            raise ExampleException()

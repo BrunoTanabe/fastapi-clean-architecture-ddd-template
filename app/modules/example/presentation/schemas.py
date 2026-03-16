@@ -5,22 +5,41 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # REQUEST
 class ExampleRequest(BaseModel):
-    name: str = Field(
-        title="Individual's name (Required)",
-        description="Name to receive 'Hello' in the response. Must be a valid name.",
+    first_name: str = Field(
+        title="Individual's first name (Required)",
+        description="First name to receive 'Hello' in the response. Must be a valid name.",
         min_length=3,
-        examples=["Bruno Tanabe", "João da Silva"],
+        examples=["John", "Jane"],
         json_schema_extra={
-            "example": "Bruno Tanabe",
+            "example": "John",
             "writeOnly": True,
         },
     )
 
-    @field_validator("name")
-    def validate_name(cls, request: str) -> str:
+    last_name: str = Field(
+        title="Individual's last name (Required)",
+        description="Last name to receive 'Hello' in the response. Must be a valid name.",
+        min_length=3,
+        examples=["Doe", "Smith"],
+        json_schema_extra={
+            "example": "Doe",
+            "writeOnly": True,
+        },
+    )
+
+    @field_validator("first_name")
+    def validate_first_name(cls, request: str) -> str:
         if not re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$", request):
             raise ValueError(
-                "Name must contain only letters, spaces, apostrophes, and hyphens."
+                "First name must contain only letters, spaces, apostrophes, and hyphens."
+            )
+        return request.strip()
+
+    @field_validator("last_name")
+    def validate_last_name(cls, request: str) -> str:
+        if not re.match(r"^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$", request):
+            raise ValueError(
+                "Last name must contain only letters, spaces, apostrophes, and hyphens."
             )
         return request.strip()
 
@@ -35,17 +54,17 @@ class ExampleRequest(BaseModel):
         json_schema_extra={
             "description": "Example schema for the request to analyze infractions.",
             "example": {
-                "name": "Bruno Tanabe",
+                "first_name": "John",
+                "last_name": "Doe",
             },
             "examples": [
                 {
-                    "name": "Bruno Tanabe",
+                    "first_name": "John",
+                    "last_name": "Doe",
                 },
                 {
-                    "name": "João da Silva",
-                },
-                {
-                    "name": "Maria Oliveira",
+                    "first_name": "Jane",
+                    "last_name": "Smith",
                 },
             ],
         },
@@ -58,10 +77,9 @@ class ExampleResponse(BaseModel):
         title="Response message (Required)",
         description="Message to be returned in the response, greeting the individual.",
         min_length=3,
-        pattern=r"^Hello\s[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+!$",
-        examples=["Hello Bruno Tanabe!", "Hello João da Silva!"],
+        examples=["Hello, John Doe!", "Hello, Jane Smith!"],
         json_schema_extra={
-            "example": "Hello Bruno Tanabe!",
+            "example": "Hello John Doe!",
             "readOnly": True,
         },
     )
@@ -77,17 +95,14 @@ class ExampleResponse(BaseModel):
         json_schema_extra={
             "description": "Example schema for the response of analyzing infractions.",
             "example": {
-                "message": "Hello Bruno Tanabe!",
+                "message": "Hello, John Doe!",
             },
             "examples": [
                 {
-                    "message": "Hello Bruno Tanabe!",
+                    "message": "Hello, John Doe!",
                 },
                 {
-                    "message": "Hello João da Silva!",
-                },
-                {
-                    "message": "Hello Maria Oliveira!",
+                    "message": "Hello, Jane Smith!",
                 },
             ],
         },

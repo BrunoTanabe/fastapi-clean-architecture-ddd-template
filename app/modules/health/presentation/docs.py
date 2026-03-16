@@ -1,9 +1,16 @@
 from http import HTTPStatus
+
+from fastapi import Security
 from fastapi.responses import RedirectResponse
 
-from app.core.enums import ResponseMessages
-from app.core.schemas import StandardResponse
-from app.modules.health.presentation.schemas import HealthResponse
+from app.core.security import no_authentication, authenticate_admin
+from app.modules.health.application.enums import HealthType
+from app.modules.health.presentation.schemas import (
+    HealthResponse,
+    AlembicVersionResponse,
+)
+from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.presentation.schemas import StandardResponse
 
 # MODULE DOCS
 router_docs = {
@@ -90,10 +97,10 @@ router_docs = {
 health_docs = {
     "summary": "Endpoint for checking the health of the application",
     "description": "This endpoint is used to verify that the application is running and healthy. It returns a simple status message.",
+    "dependencies": [Security(no_authentication)],
     "response_description": "Returns a status message indicating the health of the application.",
     "status_code": HTTPStatus.OK,
     "response_model": HealthResponse,
-    "include_in_schema": True,
     "responses": {
         200: {
             "description": "Successful analysis of infractor eligibility",
@@ -110,7 +117,7 @@ health_docs = {
                                 "timestamp": "2025-01-15T10:30:00Z",
                                 "details": {
                                     "message": ResponseMessages.SUCCESS.value,
-                                    "data": {"status": "OK"},
+                                    "data": {"status": HealthType.OK.value},
                                 },
                             },
                         },
@@ -121,9 +128,10 @@ health_docs = {
     },
 }
 
-redirect_root_docs = {
+redirect_docs = {
     "summary": "Redirects root path to FastAPI documentation",
     "description": "This endpoint redirects the root path to the FastAPI documentation page.",
+    "dependencies": [Security(no_authentication)],
     "response_description": "Redirects to the FastAPI documentation page.",
     "status_code": HTTPStatus.PERMANENT_REDIRECT,
     "response_model": None,
@@ -145,6 +153,54 @@ redirect_root_docs = {
                                 "details": {
                                     "message": ResponseMessages.REDIRECT.value,
                                     "data": {"url": "/docs"},
+                                },
+                            },
+                        },
+                    }
+                }
+            },
+        }
+    },
+}
+
+alembic_version_docs = {
+    "summary": "Endpoint to retrieve the current Alembic migration version.",
+    "description": "Retrieve the current Alembic database migration version identifier. This endpoint provides information about the current state of database migrations.",
+    "dependencies": [Security(authenticate_admin)],
+    "response_description": "The response contains the current Alembic version identifier.",
+    "status_code": HTTPStatus.OK,
+    "response_model": AlembicVersionResponse,
+    "include_in_schema": True,
+    "responses": {
+        200: {
+            "description": "Successful Response",
+            "model": AlembicVersionResponse,
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "Alembic Version Retrieved Successfully - Example 1": {
+                            "summary": "Current Migration Version",
+                            "value": {
+                                "code": 200,
+                                "method": "GET",
+                                "path": "/api/v1/alembic-version",
+                                "timestamp": "2025-01-15T10:30:00Z",
+                                "details": {
+                                    "message": ResponseMessages.SUCCESS.value,
+                                    "data": {"version_num": "a1b2c3d4e5f6"},
+                                },
+                            },
+                        },
+                        "Alembic Version Retrieved Successfully - Example 2": {
+                            "summary": "Latest Migration Applied",
+                            "value": {
+                                "code": 200,
+                                "method": "GET",
+                                "path": "/api/v1/alembic-version",
+                                "timestamp": "2025-01-15T14:20:00Z",
+                                "details": {
+                                    "message": ResponseMessages.SUCCESS.value,
+                                    "data": {"version_num": "9f8e7d6c5b4a"},
                                 },
                             },
                         },

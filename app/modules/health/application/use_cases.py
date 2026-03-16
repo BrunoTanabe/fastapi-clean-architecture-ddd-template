@@ -1,21 +1,69 @@
 from loguru import logger
 
-from app.core.exceptions import StandardException
-from app.modules.health.application.enums import HealthType
-from app.modules.health.presentation.exceptions import HealthUseCasesException
+from app.modules.health.application.interfaces import IHealthRepository
+from app.modules.health.domain.entities import Health
+from app.modules.health.presentation.exceptions import (
+    HealthException,
+    MigrationNotInitiatedException,
+)
+from app.modules.shared.domain.entities import DomainError
+from app.modules.shared.presentation.exceptions import (
+    StandardException,
+    DomainException,
+)
 
 
 class HealthUseCases:
-    async def check(self) -> HealthType:
+    def __init__(
+        self,
+        repository: IHealthRepository,
+    ) -> None:
+        self.repository = repository
+
+    @staticmethod
+    async def health() -> Health:
         try:
-            logger.info("Starting health check use case.")
+            logger.debug("Starting health check use case.")
 
-            status = HealthType.OK
+            health: Health = Health()
 
-            logger.info("Health check use case completed successfully.")
-            return status
+            logger.debug("Health check use case completed successfully.")
+            return health
         except StandardException:
             raise
+        except DomainError as e:
+            raise DomainException(e)
         except Exception as e:
-            logger.opt(exception=e).error("An error occurred in the hello use case.")
-            raise HealthUseCasesException()
+            logger.opt(exception=e).error(
+                "An error occurred in the health check use case."
+            )
+            raise HealthException()
+
+    async def alembic_version(self, health: Health) -> Health:
+        try:
+            logger.debug(
+                f"Starting get alembic version use case for the admin {health.user.email.__str__()}."
+            )
+
+            alembic_version: Health = await self.repository.get_alembic_version(health)
+            health.alembic_version = alembic_version.alembic_version
+
+            if not health:
+                logger.info(
+                    f"Alembic migration version not found in database for admin {health.user.email.__str__()}. Raising exception."
+                )
+                raise MigrationNotInitiatedException()
+
+            logger.debug(
+                f"Get alembic version use case completed successfully for the admin {health.user.email.__str__()}. Alembic version: {health.alembic_version}."
+            )
+            return health
+        except StandardException:
+            raise
+        except DomainError as e:
+            raise DomainException(e)
+        except Exception as e:
+            logger.opt(exception=e).error(
+                "An error occurred in the alembic_version use case."
+            )
+            raise HealthException()

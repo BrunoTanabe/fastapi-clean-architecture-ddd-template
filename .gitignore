@@ -129,6 +129,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
+.env.docker
 .venv
 env/
 venv/
@@ -192,3 +194,10 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+
+*.pyc
+secrets/keys/encryption-private.pem
+secrets/keys/encryption-public.pem
+secrets/keys/signing-private.pem
+secrets/keys/signing-public.pem

@@ -2,17 +2,15 @@ from http import HTTPStatus
 
 from fastapi import Security
 
-from app.core.enums import ResponseMessages
-from app.core.schemas import StandardResponse
-from app.core.security import api_key_auth
+from app.core.security import no_authentication
 from app.modules.example.presentation.schemas import ExampleResponse
-
+from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.presentation.schemas import StandardResponse
 
 # MODULE DOCS
 example_docs = {
-    "prefix": "/api/v2/example",
+    "prefix": "/api/v1/example",
     "tags": ["Example"],
-    "dependencies": [Security(api_key_auth)],
     "responses": {
         400: {
             "model": StandardResponse,
@@ -25,7 +23,7 @@ example_docs = {
                             "value": {
                                 "code": 400,
                                 "method": "POST",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.VALIDATION_ERROR.value,
@@ -50,7 +48,7 @@ example_docs = {
                             "value": {
                                 "code": 401,
                                 "method": "GET",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.UNAUTHORIZED_ERROR.value,
@@ -75,7 +73,7 @@ example_docs = {
                             "value": {
                                 "code": 403,
                                 "method": "DELETE",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.AUTHORIZATION_ERROR.value,
@@ -100,7 +98,7 @@ example_docs = {
                             "value": {
                                 "code": 405,
                                 "method": "PUT",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.METHOD_NOT_ALLOWED.value,
@@ -125,7 +123,7 @@ example_docs = {
                             "value": {
                                 "code": 422,
                                 "method": "POST",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.VALIDATION_ERROR.value,
@@ -150,7 +148,7 @@ example_docs = {
                             "value": {
                                 "code": 500,
                                 "method": "DELETE",
-                                "path": "/api/v2/example",
+                                "path": "/api/v1/example",
                                 "timestamp": "2025-07-15T12:34:56Z",
                                 "details": {
                                     "message": ResponseMessages.VALIDATION_ERROR.value,
@@ -169,6 +167,7 @@ example_docs = {
 example_request_docs = {
     "summary": "Endpoint Example",
     "description": "This endpoint returns a greeting message.",
+    "dependencies": [Security(no_authentication)],
     "response_description": "Returns a greeting message.",
     "response_model": ExampleResponse,
     "status_code": HTTPStatus.OK,
@@ -181,10 +180,10 @@ example_request_docs = {
                     "example": {
                         "code": 200,
                         "method": "POST",
-                        "path": "/api/v2/example",
+                        "path": "/api/v1/example",
                         "timestamp": "2025-01-15T10:30:00Z",
                         "details": {
-                            "message": "Request processed successfully.",
+                            "message": ResponseMessages.SUCCESS.value,
                             "data": {
                                 "message": "Hello Bruno Tanabe!",
                             },
