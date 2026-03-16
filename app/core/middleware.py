@@ -326,12 +326,14 @@ class DeviceIdMiddleware(BaseHTTPMiddleware):
 
         if getattr(request.state, "new_device_id", None):
             response.set_cookie(
-                key=self.COOKIE_NAME,
+                key=settings.COOKIES_DEVICE_KEY,
                 value=device_id,
-                httponly=True,
+                max_age=settings.COOKIES_REFRESH_TOKEN_MAX_AGE,
+                path=settings.COOKIES_REFRESH_TOKEN_PATH,
+                domain=settings.COOKIES_DOMAIN,
                 secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
-                samesite="lax",
-                max_age=settings.COOKIES_MAX_AGE_SECONDS,
+                httponly=True,
+                samesite="strict",
             )
 
         return response

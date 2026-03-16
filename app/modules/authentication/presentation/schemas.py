@@ -36,3 +36,20 @@ class RefreshResponse(BaseModel):
             "example": {"message": ResponseMessages.REFRESH_SUCCESS.value},
         },
     )
+
+
+class LogoutResponse(BaseModel):
+    message: str = ResponseMessages.LOGOUT_SUCCESS.value
+
+    model_config = ConfigDict(
+        title="LogoutResponse",
+        str_strip_whitespace=True,
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        validate_return=True,
+        json_schema_extra={
+            "description": "Response model for successful user logout.",
+            "example": {"message": ResponseMessages.LOGOUT_SUCCESS.value},
+        },
+    )

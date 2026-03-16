@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     COOKIES_ACCESS_TOKEN_PATH: str
     COOKIES_REFRESH_TOKEN_KEY: str
     COOKIES_REFRESH_TOKEN_PATH: str
+    COOKIES_DEVICE_KEY: str
     COOKIES_DOMAIN: str
 
     # JWT
@@ -145,6 +146,8 @@ class Settings(BaseSettings):
             # AUTHENTICATION
             {"endpoint": "/api/v1/authentication/login/", "method": "POST"},
             {"endpoint": "/api/v1/authentication/login", "method": "POST"},
+            {"endpoint": "/api/v1/authentication/logout/", "method": "DELETE"},
+            {"endpoint": "/api/v1/authentication/logout", "method": "DELETE"},
             # EXAMPLE
             {"endpoint": "/api/v1/example/", "method": "POST"},
             {"endpoint": "/api/v1/example", "method": "POST"},

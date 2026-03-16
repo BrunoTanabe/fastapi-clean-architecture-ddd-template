@@ -8,8 +8,6 @@ from sqlalchemy.orm import joinedload
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
 from app.modules.authentication.domain.entities import (
     Session,
-    AccessToken,
-    RefreshToken,
 )
 from app.modules.authentication.domain.mappers import model_entity_mapper
 from app.modules.authentication.infrastructure.models import (
@@ -97,30 +95,54 @@ class PostgresSessionRepository(IAuthenticationRepository):
             )
             raise
 
-    async def get_access_token_by_hashed_jti(
-        self, access_token: AccessToken
-    ) -> Optional[AccessToken]:
+    async def get_access_token_by_session(
+        self,
+        session: Session,
+    ) -> Optional[Session]:
         try:
-            logger.info("Getting access token by hashed_jti from database.")
+            logger.info(
+                "Getting session by access token hashed_jti and device from database."
+            )
 
-            statement = select(AccessTokenModel).where(
-                AccessTokenModel.hashed_jti == access_token.hashed_jti,
+            conditions = [
+                AccessTokenModel.hashed_jti
+                == session.refresh_token.access_token.hashed_jti,
                 AccessTokenModel.revoked.is_(False),
+                RefreshTokenModel.revoked.is_(False),
+                SessionModel.blacklisted.is_(False),
+            ]
+
+            if session.device is not None:
+                conditions.append(SessionModel.device == session.device)
+
+            statement = (
+                select(SessionModel)
+                .join(SessionModel.refresh_token)
+                .join(RefreshTokenModel.access_token)
+                .options(
+                    joinedload(SessionModel.user),
+                    joinedload(SessionModel.refresh_token).joinedload(
+                        RefreshTokenModel.access_token
+                    ),
+                )
+                .where(*conditions)
             )
 
             result = await self.session.execute(statement)
-            access_token_model: Optional[AccessTokenModel] = result.scalar_one_or_none()
+            session_model: Optional[SessionModel] = result.scalar_one_or_none()
 
-            if access_token_model is None:
-                logger.info("No session found for the given access token hashed_jti.")
+            if session_model is None:
+                logger.info(
+                    "No session found for the given access token hashed_jti and device."
+                )
                 return None
 
-            access_token: AccessToken = await model_entity_mapper(access_token_model)
+            session: Session = await model_entity_mapper(session_model)
 
             logger.info(
-                f"Session retrieved successfully for access token with ID {access_token.id}."
+                f"Session retrieved successfully for access token with ID {session.refresh_token.access_token.id} and device {session.device}."
             )
-            return access_token
+            return session
         except StandardException:
             raise
         except Exception as e:
@@ -129,36 +151,51 @@ class PostgresSessionRepository(IAuthenticationRepository):
             )
             raise
 
-    async def get_refresh_token_by_hashed_jti(
-        self, refresh_token: RefreshToken
-    ) -> Optional[RefreshToken]:
+    async def get_refresh_token_by_session(
+        self,
+        session: Session,
+    ) -> Optional[Session]:
         try:
-            logger.info("Getting refresh token by hashed_jti from database.")
+            logger.info(
+                "Getting session by refresh token hashed_jti and device from database."
+            )
+
+            conditions = [
+                RefreshTokenModel.hashed_jti == session.refresh_token.hashed_jti,
+                RefreshTokenModel.revoked.is_(False),
+                SessionModel.blacklisted.is_(False),
+            ]
+
+            if session.device is not None:
+                conditions.append(SessionModel.device == session.device)
 
             statement = (
-                select(RefreshTokenModel)
-                .options(joinedload(RefreshTokenModel.access_token))
-                .where(
-                    RefreshTokenModel.hashed_jti == refresh_token.hashed_jti,
-                    RefreshTokenModel.revoked.is_(False),
+                select(SessionModel)
+                .join(SessionModel.refresh_token)
+                .options(
+                    joinedload(SessionModel.user),
+                    joinedload(SessionModel.refresh_token).joinedload(
+                        RefreshTokenModel.access_token
+                    ),
                 )
+                .where(*conditions)
             )
 
             result = await self.session.execute(statement)
-            refresh_token_model: Optional[RefreshTokenModel] = (
-                result.scalar_one_or_none()
-            )
+            session_model: Optional[SessionModel] = result.scalar_one_or_none()
 
-            if refresh_token_model is None:
-                logger.info("No session found for the given access token hashed_jti.")
+            if session_model is None:
+                logger.info(
+                    "No session found for the given refresh token hashed_jti and device."
+                )
                 return None
 
-            refresh_token: RefreshToken = await model_entity_mapper(refresh_token_model)
+            session: Session = await model_entity_mapper(session_model)
 
             logger.info(
-                f"Session retrieved successfully for access token with ID {refresh_token.id}."
+                f"Session retrieved successfully for refresh token with ID {session.id} and device {session.device}."
             )
-            return refresh_token
+            return session
         except StandardException:
             raise
         except Exception as e:
@@ -178,11 +215,39 @@ class PostgresSessionRepository(IAuthenticationRepository):
             db_session: SessionModel = await model_entity_mapper(session)
 
             await self.session.merge(db_session)
-
             await self.session.flush()
 
             logger.info(
                 f"Session {session.id} updated successfully for user {session.user.email.__str__()} "
+                f"with device {session.device} and user agent {session.user_agent} in database."
+            )
+            return None
+        except StandardException:
+            raise
+        except Exception as e:
+            logger.opt(exception=e).error(
+                "An error occurred in the update session repository."
+            )
+            raise AuthenticationException()
+
+    # DELETE
+    async def delete(self, session: Session) -> None:
+        try:
+            logger.info(
+                f"Revoking session {session.id} for user {session.user.email.__str__()} "
+                f"with device {session.device} and user agent {session.user_agent} in database."
+            )
+
+            session.refresh_token.revoke()
+            session.refresh_token.access_token.revoke()
+
+            db_session: SessionModel = await model_entity_mapper(session)
+
+            await self.session.merge(db_session)
+            await self.session.flush()
+
+            logger.info(
+                f"Session {session.id} revoked successfully for user {session.user.email.__str__()} "
                 f"with device {session.device} and user agent {session.user_agent} in database."
             )
             return None

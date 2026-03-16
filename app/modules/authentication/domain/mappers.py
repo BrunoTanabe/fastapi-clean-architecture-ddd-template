@@ -20,6 +20,7 @@ from app.modules.authentication.infrastructure.models import (
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
     RefreshResponse,
+    LogoutResponse,
 )
 from app.modules.shared.application.enums import Role
 from app.modules.shared.application.utils import BRASILIA_TZ
@@ -82,6 +83,33 @@ async def refresh_entity_mapper(
         )
     elif isinstance(session, Session) and request is None:
         return RefreshResponse()
+    else:
+        raise ValueError(
+            "Session must be either a User with a request or a Session without a request."
+        )
+
+
+async def logout_entity_mapper(
+    session: Union[User, Session],
+    request: Optional[Request] = None,
+) -> Union[Session, LogoutResponse]:
+    if isinstance(session, User) and request is not None:
+        return Session(
+            user=session,
+            ip_address=request.headers.get("x-forwarded-for")
+            or request.headers.get("x-real-ip")
+            or request.client.host,
+            user_agent=request.headers.get("user-agent"),
+            device=getattr(request.state, "device_id", None),
+            accept_language=request.headers.get("accept-language"),
+            accept_encoding=request.headers.get("accept-encoding"),
+            origin=request.headers.get("origin"),
+            referer=request.headers.get("referer"),
+            location=getattr(request.state, "location", None),
+            refresh_token=RefreshToken(access_token=AccessToken()),
+        )
+    elif isinstance(session, Session) and request is None:
+        return LogoutResponse()
     else:
         raise ValueError(
             "Session must be either a User with a request or a Session without a request."

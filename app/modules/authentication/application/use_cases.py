@@ -20,6 +20,7 @@ from app.modules.authentication.presentation.exceptions import (
     AuthenticationException,
     SessionInvalidCredentialsException,
     RefreshTokenInvalidDeviceException,
+    AuthenticationInvalidDeviceException,
 )
 from app.modules.shared.application.use_cases import SharedUseCases
 from app.modules.shared.application.utils import BRASILIA_TZ
@@ -151,6 +152,38 @@ class AuthenticationUseCases:
             session_from_db: Session = await hash_tokens(session_from_db)
             session_from_db.refresh_token.access_token.permission = session.user.role
             await self.repository.update(session_from_db)
+
+            logger.debug(f"User {session.user.email} refreshed tokens successfully.")
+            return session_from_db
+        except StandardException:
+            raise
+        except DomainError as e:
+            raise DomainException(e)
+        except Exception as e:
+            logger.opt(exception=e).error(
+                "An unexpected error occurred during the login use case."
+            )
+            raise AuthenticationException()
+
+    # UPDATE
+    async def logout(self, session: Session) -> Session:
+        try:
+            logger.debug(
+                f"Initializing user logout use case for user: {session.user.email} in device: {session.device}."
+            )
+
+            session_from_db: Session = (
+                await self.repository.get_by_user_id_agent_and_device(session)
+            )
+
+            if not session_from_db:
+                logger.info(
+                    "No existing session found for the user, device and agent. This token probably doesn't belong to this user on this machine, or the device_id has been changed."
+                )
+                raise AuthenticationInvalidDeviceException()
+
+            session_from_db.refresh_token.generate_updated_at()
+            await self.repository.delete(session_from_db)
 
             logger.debug(f"User {session.user.email} refreshed tokens successfully.")
             return session_from_db

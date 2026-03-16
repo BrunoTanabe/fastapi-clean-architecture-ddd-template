@@ -26,8 +26,6 @@ from app.core.settings import settings
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
 from app.modules.authentication.domain.entities import (
     Session,
-    AccessToken,
-    RefreshToken,
 )
 from app.modules.authentication.domain.mappers import (
     access_token_entity_mapper,
@@ -516,24 +514,28 @@ async def authenticate_user(
         )
 
         token = request.cookies.get(settings.COOKIES_ACCESS_TOKEN_KEY, None)
+        device = request.cookies.get(settings.COOKIES_DEVICE_KEY, None)
 
         if not token:
             raise AuthenticationTokenNotProvidedException()
 
         session: Session = await decode_nested_access_token(token)
         session: Session = await hash_tokens(session)
+        session.device = device
 
-        access_token: AccessToken = await repository.get_access_token_by_hashed_jti(
-            session.refresh_token.access_token
-        )
+        session: Session = await repository.get_access_token_by_session(session)
 
-        if not access_token:
+        if not session.refresh_token.access_token:
             logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
 
-        session.refresh_token.access_token = access_token
+        if not session.user.role == session.refresh_token.access_token.permission:
+            logger.info(
+                f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
+            )
+            raise ModifiedTokenException()
 
         if not await has_access_to_endpoint(
             request.url.path, request.method, session.user.role
@@ -562,40 +564,41 @@ async def authenticate_manager(
         logger.debug(
             f"Authenticating manager for endpoint '{request.url.path}' with method '{request.method}'."
         )
+
         token = request.cookies.get(settings.COOKIES_ACCESS_TOKEN_KEY, None)
+        device = request.cookies.get(settings.COOKIES_DEVICE_KEY, None)
 
         if not token:
             raise AuthenticationTokenNotProvidedException()
 
         session: Session = await decode_nested_access_token(token)
         session: Session = await hash_tokens(session)
+        session.device = device
 
-        access_token: AccessToken = await repository.get_access_token_by_hashed_jti(
-            session.refresh_token.access_token
-        )
+        session: Session = await repository.get_access_token_by_session(session)
 
-        if not access_token:
+        if not session.refresh_token.access_token:
             logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
 
-        if not session.user.role == access_token.permission:
+        if not session.user.role == session.refresh_token.access_token.permission:
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
             )
             raise ModifiedTokenException()
 
-        if access_token.permission == Role.USER:
+        if session.refresh_token.access_token.permission == Role.USER:
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with insufficient permissions. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
 
-        session.refresh_token.access_token = access_token
-
         if not await has_access_to_endpoint(
-            request.url.path, request.method, access_token.permission
+            request.url.path,
+            request.method,
+            session.refresh_token.access_token.permission,
         ):
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' that is not in the allowed paths. Raising authentication exception."
@@ -621,40 +624,41 @@ async def authenticate_admin(
         logger.debug(
             f"Authenticating admin for endpoint '{request.url.path}' with method '{request.method}'."
         )
+
         token = request.cookies.get(settings.COOKIES_ACCESS_TOKEN_KEY, None)
+        device = request.cookies.get(settings.COOKIES_DEVICE_KEY, None)
 
         if not token:
             raise AuthenticationTokenNotProvidedException()
 
         session: Session = await decode_nested_access_token(token)
         session: Session = await hash_tokens(session)
+        session.device = device
 
-        access_token: AccessToken = await repository.get_access_token_by_hashed_jti(
-            session.refresh_token.access_token
-        )
+        session: Session = await repository.get_access_token_by_session(session)
 
-        if not access_token:
+        if not session.refresh_token.access_token:
             logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
 
-        if not session.user.role == access_token.permission:
+        if not session.user.role == session.refresh_token.access_token.permission:
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
             )
             raise ModifiedTokenException()
 
-        if not access_token.permission == Role.ADMIN:
+        if not session.refresh_token.access_token.permission == Role.ADMIN:
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with insufficient permissions. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
 
-        session.refresh_token.access_token = access_token
-
         if not await has_access_to_endpoint(
-            request.url.path, request.method, access_token.permission
+            request.url.path,
+            request.method,
+            session.refresh_token.access_token.permission,
         ):
             logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' that is not in the allowed paths. Raising authentication exception."
@@ -686,24 +690,22 @@ async def authenticate_refresh(
             raise RefreshTokenInvalidEndpoint()
 
         token = request.cookies.get(settings.COOKIES_REFRESH_TOKEN_KEY, None)
+        device = request.cookies.get(settings.COOKIES_DEVICE_KEY, None)
 
         if not token:
             raise RefreshTokenNotProvidedException()
 
         session: Session = await decode_nested_refresh_token(token)
         session: Session = await hash_tokens(session)
+        session.device = device
 
-        refresh_token: RefreshToken = await repository.get_refresh_token_by_hashed_jti(
-            session.refresh_token
-        )
+        session: Session = await repository.get_refresh_token_by_session(session)
 
-        if not refresh_token:
+        if not session.refresh_token:
             logger.warning(
                 f"Refresh token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise RefreshTokenInvalidException()
-
-        session.refresh_token = refresh_token
 
         logger.debug(
             f"Refresh token authenticated successfully for user '{session.user.email}'."

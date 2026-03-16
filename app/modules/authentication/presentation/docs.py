@@ -2,8 +2,11 @@ from http import HTTPStatus
 
 from fastapi import Security
 
-from app.core.security import no_authentication, authenticate_refresh
-from app.modules.authentication.presentation.schemas import LoginResponse
+from app.core.security import no_authentication, authenticate_refresh, authenticate_user
+from app.modules.authentication.presentation.schemas import (
+    LoginResponse,
+    LogoutResponse,
+)
 from app.modules.shared.application.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse
 
@@ -300,6 +303,59 @@ refresh_docs = {
                                     "message": ResponseMessages.SUCCESS.value,
                                     "data": {
                                         "message": ResponseMessages.REFRESH_SUCCESS.value
+                                    },
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+        },
+    },
+}
+
+logout_docs = {
+    "summary": "Endpoint to logout a user.",
+    "description": (
+        "Invalidates the authenticated session and removes authentication cookies. "
+        "The endpoint requires a valid authenticated user."
+    ),
+    "dependencies": [Security(authenticate_user)],
+    "response_description": (
+        "Successful logout. Authentication cookies are removed and the JSON body "
+        "returns a logout confirmation message."
+    ),
+    "status_code": HTTPStatus.OK,
+    "response_model": LogoutResponse,
+    "include_in_schema": True,
+    "responses": {
+        200: {
+            "description": "Successful logout response (cookies removed + minimal JSON body)",
+            "model": StandardResponse[LogoutResponse],
+            "headers": {
+                "Set-Cookie": {
+                    "description": (
+                        "Returned multiple times to clear `token_type`, `access_token`, "
+                        "and `refresh_token` cookies."
+                    ),
+                    "schema": {"type": "string"},
+                    "example": 'access_token=""; Max-Age=0; Path=/; HttpOnly; SameSite=lax',
+                }
+            },
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "Logout Success": {
+                            "summary": "User logged out successfully",
+                            "value": {
+                                "code": 200,
+                                "method": "PATCH",
+                                "path": "/api/v1/authentication/logout/",
+                                "timestamp": "2026-03-15T23:14:46.555200Z",
+                                "details": {
+                                    "message": ResponseMessages.SUCCESS.value,
+                                    "data": {
+                                        "message": ResponseMessages.LOGOUT_SUCCESS.value
                                     },
                                 },
                             },

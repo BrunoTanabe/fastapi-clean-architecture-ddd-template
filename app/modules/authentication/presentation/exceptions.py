@@ -276,3 +276,17 @@ class RefreshTokenInvalidDeviceException(StandardException):
             message=message,
             data={"errors": errors},
         )
+
+
+class AuthenticationInvalidDeviceException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Invalid authentication data. the provided token is not valid or has been revoked. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )

@@ -188,6 +188,7 @@ class RefreshTokenModel(Base):
         name="hashed_jti",
         comment="Hashed JTI (JWT ID) value",
         nullable=False,
+        unique=True,
     )
 
     previous_hashed_jti: Mapped[Optional[str]] = mapped_column(

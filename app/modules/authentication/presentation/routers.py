@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestFormStrict
 from loguru import logger
 
-from app.core.security import no_authentication, authenticate_refresh
+from app.core.security import no_authentication, authenticate_refresh, authenticate_user
 from app.core.settings import settings
 from app.modules.authentication.application.use_cases import AuthenticationUseCases
 from app.modules.authentication.domain.entities import Session
 from app.modules.authentication.domain.mappers import (
     login_entity_mapper,
     refresh_entity_mapper,
+    logout_entity_mapper,
 )
 from app.modules.authentication.presentation.dependencies import (
     get_authentication_use_cases,
@@ -19,11 +20,13 @@ from app.modules.authentication.presentation.docs import (
     router_docs,
     login_docs,
     refresh_docs,
+    logout_docs,
 )
 from app.modules.authentication.presentation.exceptions import AuthenticationException
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
     RefreshResponse,
+    LogoutResponse,
 )
 from app.modules.shared.domain.entities import DomainError
 from app.modules.shared.presentation.exceptions import (
@@ -152,6 +155,32 @@ async def refresh(
         output = await refresh_entity_mapper(response_domain)
 
         await set_cookies(response, response_domain)
+
+        return output
+    except StandardException:
+        raise
+    except DomainError as e:
+        raise DomainException(e)
+    except Exception as e:
+        logger.opt(exception=e).error("An error occurred in the refresh endpoint.")
+        raise AuthenticationException()
+
+
+# DELETE
+@router.delete("/logout/", **logout_docs)
+@router.delete("/logout", include_in_schema=False)
+async def logout(
+    request: Request,
+    response: Response,
+    user: User = Depends(authenticate_user),
+    use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
+) -> LogoutResponse:
+    try:
+        await delete_cookies(response)
+
+        request_domain = await logout_entity_mapper(user, request)
+        response_domain = await use_case.logout(request_domain)
+        output = await logout_entity_mapper(response_domain)
 
         return output
     except StandardException:

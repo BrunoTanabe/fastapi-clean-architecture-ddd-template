@@ -2,8 +2,6 @@ from typing import Protocol, Optional
 
 from app.modules.authentication.domain.entities import (
     Session,
-    AccessToken,
-    RefreshToken,
 )
 
 
@@ -16,13 +14,16 @@ class IAuthenticationRepository(Protocol):
         self, session: Session
     ) -> Optional[Session]: ...
 
-    async def get_access_token_by_hashed_jti(
-        self, access_token: AccessToken
-    ) -> Optional[AccessToken]: ...
+    async def get_access_token_by_session(
+        self, session: Session
+    ) -> Optional[Session]: ...
 
-    async def get_refresh_token_by_hashed_jti(
-        self, refresh_token: RefreshToken
-    ) -> Optional[RefreshToken]: ...
+    async def get_refresh_token_by_session(
+        self, session: Session
+    ) -> Optional[Session]: ...
 
     # UPDATE
     async def update(self, session: Session) -> None: ...
+
+    # DELETE
+    async def delete(self, session: Session) -> None: ...
