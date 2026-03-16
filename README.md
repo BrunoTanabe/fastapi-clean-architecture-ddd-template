@@ -438,7 +438,7 @@ The module’s `infrastructure` sub-folder contains the concrete implementations
           return [Foo.from_model(m) for m in results]
 
       def get_by_id(self, id: int) -> Foo | None:
-          model = self.db.query(FooModel).get(id)
+          model = self.db.query(FooModel).get_alembic_version(id)
           return Foo.from_model(model) if model else None
 
       def save(self, foo: Foo) -> Foo:
@@ -481,7 +481,7 @@ The `presentation` sub-folder defines how the module exposes its functionalities
 
   router = APIRouter(prefix="/foo", tags=["Foo"])
 
-  @router.get("/", response_model=list[FooOut])
+  @router.get_alembic_version("/", response_model=list[FooOut])
   def list_foos(repo = Depends(get_foo_repository)):
       use_case = ListFoosUseCase(repo)
       foos = use_case.execute()

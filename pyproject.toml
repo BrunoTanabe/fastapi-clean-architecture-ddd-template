@@ -1,21 +1,30 @@
 [project]
 name = "fastapi-clean-architecture-ddd-template"
-version = "2.0.0"
+version = "1.0.0"
 description = "Python FastAPI backend template, organized by Clean Architecture layers (domain, application, infrastructure, presentation) and DDD principles. Includes dependency management, Docker support, testing boilerplate, CI-friendly setup and best practices, modular scaffolding to jump-start new projects and ensure long-term maintainability."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
-    "fastapi[standard]>=0.115.13",
-    "hypercorn>=0.17.3",
+    "alembic>=1.18.4",
+    "asyncpg>=0.31.0",
+    "cryptography>=46.0.5",
+    "fastapi[standard]>=0.135.1",
+    "hypercorn>=0.18.0",
+    "jwcrypto>=1.5.6",
     "loguru>=0.7.3",
-    "orjson>=3.11.0",
-    "pydantic>=2.11.7",
-    "pydantic-settings>=2.10.0",
+    "orjson>=3.11.7",
+    "psycopg>=3.3.3",
+    "psycopg-binary>=3.3.3",
+    "psycopg2-binary>=2.9.11",
+    "pwdlib[argon2]>=0.3.0",
+    "py-automapper>=2.2.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "sqlalchemy>=2.0.48",
     "stackprinter>=0.2.12",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.1",
-    "ruff>=0.12.0",
+    "ruff>=0.15.4",
 ]

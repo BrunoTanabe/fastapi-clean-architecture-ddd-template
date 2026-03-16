@@ -438,7 +438,7 @@ A subpasta `infrastructure` do módulo contém as implementações concretas dos
           return [Foo.from_model(m) for m in results]
 
       def obter_por_id(self, id: int) -> Foo | None:
-          model = self.db.query(FooModel).get(id)
+          model = self.db.query(FooModel).get_alembic_version(id)
           return Foo.from_model(model) if model else None
 
       def salvar(self, foo: Foo) -> Foo:
@@ -481,7 +481,7 @@ A subpasta `presentation` define como o módulo expõe as suas funcionalidades p
 
   router = APIRouter(prefix="/foo", tags=["Foo"])
 
-  @router.get("/", response_model=list[FooOut])
+  @router.get_alembic_version("/", response_model=list[FooOut])
   def listar_foos(repo = Depends(get_foo_repository)):
       use_case = ListarFoosUseCase(repo)
       foos = use_case.execute()

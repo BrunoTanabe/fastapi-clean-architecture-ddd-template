@@ -1,7 +1,8 @@
 from typing import TypeVar, Generic, Optional
+
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.core.enums import ResponseMessages
+from app.modules.shared.application.enums import ResponseMessages
 
 T = TypeVar("T")
 
@@ -31,7 +32,6 @@ class StandardDetailsResponse(BaseModel, Generic[T]):
     model_config = ConfigDict(
         title="StandardDetailsResponse",
         str_strip_whitespace=True,
-        str_to_lower=True,
         extra="forbid",
         validate_default=True,
         validate_assignment=True,
@@ -131,7 +131,6 @@ class StandardResponse(BaseModel, Generic[T]):
     model_config = ConfigDict(
         title="StandardResponse",
         str_strip_whitespace=True,
-        str_to_lower=True,
         str_min_length=1,
         extra="forbid",
         validate_default=True,

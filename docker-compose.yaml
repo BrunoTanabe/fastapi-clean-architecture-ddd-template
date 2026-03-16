@@ -5,9 +5,66 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: fastapi-clean-architecture-ddd-template-api
+    depends_on:
+      database:
+        condition: service_healthy
+    expose:
+      - "${APPLICATION_PORT}"
+    networks:
+      - fastapi-clean-architecture-ddd-template-network
     ports:
-      - "${APPLICATION_PORT}:8000"
+      - "${APPLICATION_PORT}:3000"
+    restart: unless-stopped
     volumes:
       - ./:/app
+
+  database:
+    container_name: fastapi-clean-architecture-ddd-template-database
+    environment:
+      - "POSTGRES_DB=${POSTGRESQL_DATABASE}"
+      - "POSTGRES_USER=${POSTGRESQL_USERNAME}"
+      - "POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}"
+    expose:
+      - "${POSTGRESQL_PORT}"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d \"$${POSTGRES_DB}\" -U \"$${POSTGRES_USER}\"" ]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    image: "postgres:17.4-bullseye"
+    networks:
+      - fastapi-clean-architecture-ddd-template-network
+    ports:
+      - "${POSTGRESQL_PORT}:5432"
     restart: unless-stopped
-    container_name: fastapi-clean-architecture-ddd-template
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+
+  database-admin:
+    image: "dpage/pgadmin4:9.2"
+    container_name: samai-web-chatbots-database-admin
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - "PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}"
+      - "PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}"
+    expose:
+      - "${PGADMIN_PORT}"
+    networks:
+      - fastapi-clean-architecture-ddd-template-network
+    ports:
+      - "${PGADMIN_PORT}:80"
+    restart: unless-stopped
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  fastapi-clean-architecture-ddd-template-network:
+    name: fastapi-clean-architecture-ddd-template-network
