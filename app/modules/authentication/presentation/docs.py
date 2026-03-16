@@ -1,5 +1,8 @@
 from http import HTTPStatus
 
+from fastapi import Security
+
+from app.core.security import no_authentication, authenticate_refresh
 from app.modules.authentication.presentation.schemas import LoginResponse
 from app.modules.shared.application.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse
@@ -217,6 +220,7 @@ login_docs = {
         "Authenticate a user and initiate a login session. "
         "Authentication tokens are returned via HttpOnly cookies."
     ),
+    "dependencies": [Security(no_authentication)],
     "response_description": (
         "Successful authentication. Access/refresh tokens are set in cookies and "
         "the JSON body returns a minimal confirmation message."
@@ -249,46 +253,59 @@ login_docs = {
                 }
             },
         },
-        403: {
-            "description": "Forbidden",
-            "model": StandardResponse,
+    },
+}
+
+
+refresh_docs = {
+    "summary": "Endpoint to refresh authentication tokens.",
+    "description": (
+        "Validates the `refresh_token` from HttpOnly cookies using `refresh_tokens` "
+        "security dependency, then rotates and sets new `token_type`, `access_token`, "
+        "and `refresh_token` cookies."
+    ),
+    "dependencies": [Security(authenticate_refresh)],
+    "response_description": (
+        "Successful token refresh. New access/refresh tokens and token type are set "
+        "in cookies, and the JSON body returns a refresh confirmation message."
+    ),
+    "status_code": HTTPStatus.OK,
+    "response_model": LoginResponse,
+    "include_in_schema": True,
+    "responses": {
+        200: {
+            "description": "Successful refresh response (cookies + minimal JSON body)",
+            "model": StandardResponse[LoginResponse],
+            "headers": {
+                "Set-Cookie": {
+                    "description": (
+                        "Returned multiple times to set `token_type`, `access_token`, "
+                        "and `refresh_token` cookies."
+                    ),
+                    "schema": {"type": "string"},
+                    "example": "access_token=<token>; HttpOnly; Path=/; SameSite=lax",
+                }
+            },
             "content": {
                 "application/json": {
                     "examples": {
-                        "User Not Verified": {
-                            "summary": "User has not verified their email yet.",
+                        "Refresh Success": {
+                            "summary": "Refresh token generated successfully",
                             "value": {
-                                "code": 403,
-                                "method": "POST",
-                                "path": "/api/v1/authentication/login/",
-                                "timestamp": "2025-01-15T10:30:00Z",
+                                "code": 200,
+                                "method": "PATCH",
+                                "path": "/api/v1/authentication/refresh/",
+                                "timestamp": "2026-03-15T23:14:46.555200Z",
                                 "details": {
-                                    "message": ResponseMessages.FORBIDDEN.value,
+                                    "message": ResponseMessages.SUCCESS.value,
                                     "data": {
-                                        "errors": ["User hasn't verified its email yet"]
+                                        "message": ResponseMessages.REFRESH_SUCCESS.value
                                     },
                                 },
                             },
-                        },
-                        "External User Cannot Login": {
-                            "summary": "External user cannot login with email and password.",
-                            "value": {
-                                "code": 403,
-                                "method": "POST",
-                                "path": "/api/v1/authentication/login/",
-                                "timestamp": "2025-01-15T10:30:00Z",
-                                "details": {
-                                    "message": ResponseMessages.FORBIDDEN.value,
-                                    "data": {
-                                        "errors": [
-                                            "External User can't login with email and password."
-                                        ]
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
+                        }
+                    }
+                }
             },
         },
     },

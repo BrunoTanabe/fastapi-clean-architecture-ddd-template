@@ -149,16 +149,16 @@ class RefreshClaims:
 
     def __init__(
         self,
-        iss: str | dict,
-        sub: UUID,
-        aud: str,
-        iat: int,
-        nbf: int,
-        exp: int,
-        jti: UUID,
-        client_id: str,
-        grant_id: str,
-        scope: str,
+        iss: str | dict = None,
+        sub: UUID = None,
+        aud: str = None,
+        iat: int = None,
+        nbf: int = None,
+        exp: int = None,
+        jti: UUID = None,
+        client_id: str = None,
+        grant_id: str = None,
+        scope: str = None,
     ) -> None:
         if isinstance(iss, dict):
             data = iss

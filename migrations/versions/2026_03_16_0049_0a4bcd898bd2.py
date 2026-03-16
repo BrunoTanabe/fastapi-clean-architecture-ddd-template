@@ -1,9 +1,9 @@
 """
 Revision Message: insert_admin_user
 
-Revision ID: b457c8d37748
-Revises: 6054356efd30
-Create Date: 2026-03-15 17:21:34.683024
+Revision ID: 0a4bcd898bd2
+Revises: f7ea2294d326
+Create Date: 2026-03-16 00:49:32.072123
 
 """
 
@@ -18,8 +18,8 @@ from app.core.security import password_hasher
 from app.core.settings import settings
 
 
-revision: str = "b457c8d37748"
-down_revision: Union[str, Sequence[str], None] = "6054356efd30"
+revision: str = "0a4bcd898bd2"
+down_revision: Union[str, Sequence[str], None] = "f7ea2294d326"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

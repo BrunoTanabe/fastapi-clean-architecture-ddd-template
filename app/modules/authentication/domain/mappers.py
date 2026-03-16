@@ -11,13 +11,16 @@ from app.modules.authentication.domain.entities import (
     AccessToken,
     RefreshToken,
 )
-from app.modules.authentication.domain.value_objects import Claims
+from app.modules.authentication.domain.value_objects import Claims, RefreshClaims
 from app.modules.authentication.infrastructure.models import (
     SessionModel,
     AccessTokenModel,
     RefreshTokenModel,
 )
-from app.modules.authentication.presentation.schemas import LoginResponse
+from app.modules.authentication.presentation.schemas import (
+    LoginResponse,
+    RefreshResponse,
+)
 from app.modules.shared.application.enums import Role
 from app.modules.shared.application.utils import BRASILIA_TZ
 
@@ -58,6 +61,33 @@ async def login_entity_mapper(
         )
 
 
+async def refresh_entity_mapper(
+    session: Union[User, Session],
+    request: Optional[Request] = None,
+) -> Union[Session, RefreshResponse]:
+    if isinstance(session, User) and request is not None:
+        return Session(
+            user=session,
+            ip_address=request.headers.get("x-forwarded-for")
+            or request.headers.get("x-real-ip")
+            or request.client.host,
+            user_agent=request.headers.get("user-agent"),
+            device=getattr(request.state, "device_id", None),
+            accept_language=request.headers.get("accept-language"),
+            accept_encoding=request.headers.get("accept-encoding"),
+            origin=request.headers.get("origin"),
+            referer=request.headers.get("referer"),
+            location=getattr(request.state, "location", None),
+            refresh_token=RefreshToken(access_token=AccessToken()),
+        )
+    elif isinstance(session, Session) and request is None:
+        return RefreshResponse()
+    else:
+        raise ValueError(
+            "Session must be either a User with a request or a Session without a request."
+        )
+
+
 async def access_token_entity_mapper(claims: dict) -> Session:
     access = AccessToken(
         claims=Claims(claims),
@@ -78,10 +108,46 @@ async def access_token_entity_mapper(claims: dict) -> Session:
     )
 
 
+async def refresh_token_entity_mapper(claims: dict) -> Session:
+    access = AccessToken(
+        permission=Role(claims["scope"]),
+    )
+
+    refresh = RefreshToken(
+        access_token=access,
+        refresh_claims=RefreshClaims(claims),
+        updated_at=datetime.fromtimestamp(claims["iat"], tz=BRASILIA_TZ),
+        expires_at=datetime.fromtimestamp(claims["exp"], tz=BRASILIA_TZ),
+    )
+
+    return Session(
+        user=User(
+            id=UUID(claims["sub"]) if isinstance(claims["sub"], str) else claims["sub"],
+            role=Role(claims["scope"]),
+            email=claims["grant_id"],
+        ),
+        refresh_token=refresh,
+    )
+
+
 # ENTITY / MODELS
 async def model_entity_mapper(
-    session: Union[SessionModel, Session, AccessTokenModel, AccessToken],
-) -> Union[Session, SessionModel, AccessToken, AccessTokenModel]:
+    session: Union[
+        SessionModel,
+        Session,
+        AccessTokenModel,
+        AccessToken,
+        RefreshTokenModel,
+        RefreshToken,
+    ],
+) -> Union[
+    Session,
+    SessionModel,
+    AccessToken,
+    AccessTokenModel,
+    RefreshToken,
+    RefreshTokenModel,
+]:
     if isinstance(session, SessionModel):
         mapped_user = (
             await user_model_entity_mapper(session.user) if session.user else None
@@ -107,10 +173,12 @@ async def model_entity_mapper(
                 hashed_jti=refresh.hashed_jti,
                 previous_hashed_jti=refresh.previous_hashed_jti,
                 created_at=refresh.created_at,
+                updated_at=refresh.updated_at,
                 expires_at=refresh.expires_at,
                 access_token=mapped_access_token,
             )
             mapped_refresh_token.revoked = refresh.revoked
+            mapped_refresh_token.revoked_at = refresh.revoked_at
 
         mapped_session = mapper.to(Session).map(
             session,
@@ -125,7 +193,7 @@ async def model_entity_mapper(
                 "referer": session.referrer,
                 "location": session.location,
                 "created_at": session.created_at,
-                "last_seen_at": session.last_seen_at,
+                "last_updated_at": session.last_updated_at,
                 "user": mapped_user,
                 "refresh_token": mapped_refresh_token,
             },
@@ -153,6 +221,7 @@ async def model_entity_mapper(
                 hashed_jti=refresh.hashed_jti,
                 previous_hashed_jti=refresh.previous_hashed_jti,
                 created_at=refresh.created_at,
+                updated_at=refresh.updated_at,
                 expires_at=refresh.expires_at,
                 revoked=refresh.revoked if refresh.revoked is not None else False,
                 revoked_at=refresh.revoked_at
@@ -173,7 +242,7 @@ async def model_entity_mapper(
             referrer=session.referer,
             location=session.location,
             created_at=session.created_at,
-            last_seen_at=session.last_seen_at,
+            last_updated_at=session.last_updated_at,
             blacklisted=session.blacklisted,
         )
         session_model.refresh_token = mapped_refresh_token
@@ -196,7 +265,33 @@ async def model_entity_mapper(
             expires_at=session.expires_at,
             permission=session.permission,
         )
+    elif isinstance(session, RefreshTokenModel):
+        mapped_refresh_token = RefreshToken(
+            id=session.id,
+            hashed_jti=session.hashed_jti,
+            previous_hashed_jti=session.previous_hashed_jti,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            expires_at=session.expires_at,
+            access_token=AccessToken(),
+        )
+        mapped_refresh_token.revoked = session.revoked
+        mapped_refresh_token.revoked_at = session.revoked_at
+        return mapped_refresh_token
+    elif isinstance(session, RefreshToken):
+        return RefreshTokenModel(
+            id=session.id,
+            hashed_jti=session.hashed_jti,
+            previous_hashed_jti=session.previous_hashed_jti,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            expires_at=session.expires_at,
+            revoked=session.revoked if session.revoked is not None else False,
+            revoked_at=session.revoked_at if session.revoked_at is not None else None,
+            access_token=AccessTokenModel(),
+        )
     else:
         raise ValueError(
-            "Session must be either a SessionModel, Session, AccessTokenModel or AccessToken."
+            "Session must be either a SessionModel, Session, AccessTokenModel, "
+            "AccessToken, RefreshTokenModel or RefreshToken."
         )

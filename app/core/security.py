@@ -24,8 +24,15 @@ from fastapi.requests import Request
 
 from app.core.settings import settings
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
-from app.modules.authentication.domain.entities import Session, AccessToken
-from app.modules.authentication.domain.mappers import access_token_entity_mapper
+from app.modules.authentication.domain.entities import (
+    Session,
+    AccessToken,
+    RefreshToken,
+)
+from app.modules.authentication.domain.mappers import (
+    access_token_entity_mapper,
+    refresh_token_entity_mapper,
+)
 from app.modules.authentication.presentation.exceptions import (
     AuthenticationTokenExpiredException,
     AuthenticationTokenNotYetValidException,
@@ -37,6 +44,13 @@ from app.modules.authentication.presentation.exceptions import (
     UserHasNotPermissionException,
     AuthenticationTokenInvalidException,
     ModifiedTokenException,
+    RefreshTokenNotProvidedException,
+    RefreshTokenExpiredException,
+    RefreshTokenNotYetValidException,
+    RefreshTokenException,
+    RefreshTokenMalformedError,
+    RefreshTokenInvalidEndpoint,
+    RefreshTokenInvalidException,
 )
 from app.modules.shared.application.enums import Role
 from app.modules.shared.presentation.dependencies import get_authentication_repository
@@ -290,6 +304,93 @@ async def decode_nested_access_token(token: str) -> Session:
         raise AuthenticationTokenException()
 
 
+async def decode_nested_refresh_token(token: str) -> Session:
+    try:
+        outer = jwt.JWT(
+            jwt=token,
+            key=await load_encryption_private_key(),
+            expected_type="JWE",
+            algs=["RSA-OAEP-256", "A256GCM"],
+        )
+        inner_raw = outer.claims
+
+        inner = jwt.JWT(
+            jwt=inner_raw,
+            key=await load_signing_public_key(),
+            expected_type="JWS",
+            algs=["RS256"],
+            check_claims={
+                "iss": settings.JWT_ISSUER,
+                "sub": None,
+                "aud": settings.JWT_AUDIENCE,
+                "jti": None,
+                "client_id": None,
+                "grant_id": None,
+                "scope": None,
+                "iat": None,
+                "exp": None,
+                "nbf": None,
+            },
+        )
+
+        session: Session = await refresh_token_entity_mapper(json.loads(inner.claims))
+
+        logger.debug(
+            f"Refresh token decoded successfully for user: {session.user.email} with role: {session.user.role.value}"
+        )
+        return session
+    except JWTExpired:
+        logger.warning(
+            "Attempt to use an expired refresh token. Raising refresh token expired exception."
+        )
+        raise RefreshTokenExpiredException()
+    except JWTNotYetValid:
+        logger.warning(
+            "Attempt to use a refresh token that has not yet been valid. Raising refresh token not yet valid exception."
+        )
+        raise RefreshTokenNotYetValidException()
+    except JWTMissingClaim as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with missing claims. Raising authentication refresh token exception."
+        )
+        raise RefreshTokenException()
+    except JWTInvalidClaimValue as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with invalid claims. Raising authentication refresh token exception."
+        )
+        raise RefreshTokenException()
+    except JWTInvalidClaimFormat as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with invalid claim format. Raising refresh token authentication exception."
+        )
+        raise RefreshTokenException()
+    except InvalidJWSSignature as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with an invalid signature. Raising refresh token authentication exception."
+        )
+        raise RefreshTokenException()
+    except (InvalidJWEData, InvalidJWSObject) as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with an invalid format. Raising refresh token authentication exception."
+        )
+        raise RefreshTokenException()
+    except json.JSONDecodeError as e:
+        logger.opt(exception=e).warning(
+            "Attempt to use a refresh token with an invalid format. Raising refresh token authentication exception."
+        )
+        raise RefreshTokenMalformedError()
+    except JWException as e:
+        logger.opt(exception=e).error(
+            "Attempt to use a refresh token with an invalid format or signature. Raising refresh token authentication exception."
+        )
+        raise RefreshTokenException()
+    except Exception as e:
+        logger.opt(exception=e).error(
+            "An error occurred during refresh token decoding."
+        )
+        raise RefreshTokenException()
+
+
 # JWT HASHING
 async def _token_fingerprint(material: str, namespace: str) -> str:
     try:
@@ -389,7 +490,7 @@ async def no_authentication(request: Request) -> None:
         )
 
         if not await has_access_to_endpoint(request.url.path, request.method):
-            logger.warning(
+            logger.info(
                 f"Access attempt to endpoint '{request.url.path}' with method '{request.method}' that is not in the no authentication paths. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -427,7 +528,7 @@ async def authenticate_user(
         )
 
         if not access_token:
-            logger.warning(
+            logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
@@ -437,7 +538,7 @@ async def authenticate_user(
         if not await has_access_to_endpoint(
             request.url.path, request.method, session.user.role
         ):
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' that is not in the allowed paths. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -474,19 +575,19 @@ async def authenticate_manager(
         )
 
         if not access_token:
-            logger.warning(
+            logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
 
         if not session.user.role == access_token.permission:
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
             )
             raise ModifiedTokenException()
 
         if access_token.permission == Role.USER:
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with insufficient permissions. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -496,7 +597,7 @@ async def authenticate_manager(
         if not await has_access_to_endpoint(
             request.url.path, request.method, access_token.permission
         ):
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' that is not in the allowed paths. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -533,19 +634,19 @@ async def authenticate_admin(
         )
 
         if not access_token:
-            logger.warning(
+            logger.info(
                 f"Access token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
             )
             raise AuthenticationTokenInvalidException()
 
         if not session.user.role == access_token.permission:
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
             )
             raise ModifiedTokenException()
 
         if not access_token.permission == Role.ADMIN:
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with insufficient permissions. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -555,7 +656,7 @@ async def authenticate_admin(
         if not await has_access_to_endpoint(
             request.url.path, request.method, access_token.permission
         ):
-            logger.warning(
+            logger.info(
                 f"User '{session.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' that is not in the allowed paths. Raising authentication exception."
             )
             raise UserHasNotPermissionException()
@@ -569,3 +670,49 @@ async def authenticate_admin(
             "An error occurred during admin authentication process."
         )
         raise AuthenticationException()
+
+
+async def authenticate_refresh(
+    request: Request,
+    repository: IAuthenticationRepository = Depends(get_authentication_repository),
+) -> User:
+    try:
+        logger.debug("Authenticating access for refresh token endpoint.")
+
+        if not request.url.path.endswith("/api/v1/authentication/refresh/"):
+            logger.info(
+                f"Access attempt to endpoint '{request.url.path}' with method '{request.method}' that is not the refresh token endpoint. Raising authentication exception."
+            )
+            raise RefreshTokenInvalidEndpoint()
+
+        token = request.cookies.get(settings.COOKIES_REFRESH_TOKEN_KEY, None)
+
+        if not token:
+            raise RefreshTokenNotProvidedException()
+
+        session: Session = await decode_nested_refresh_token(token)
+        session: Session = await hash_tokens(session)
+
+        refresh_token: RefreshToken = await repository.get_refresh_token_by_hashed_jti(
+            session.refresh_token
+        )
+
+        if not refresh_token:
+            logger.warning(
+                f"Refresh token with hashed jti '{session.refresh_token.access_token.hashed_jti}' not found in database. Raising authentication token exception."
+            )
+            raise RefreshTokenInvalidException()
+
+        session.refresh_token = refresh_token
+
+        logger.debug(
+            f"Refresh token authenticated successfully for user '{session.user.email}'."
+        )
+        return session.user
+    except StandardException:
+        raise
+    except Exception as e:
+        logger.opt(exception=e).error(
+            "An error occurred during admin authentication process."
+        )
+        raise RefreshTokenException()

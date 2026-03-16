@@ -45,6 +45,20 @@ class HashingException(StandardException):
         )
 
 
+class RefreshTokenException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.INTERNAL_ERROR.value
+        errors = "An error occurred while processing the refresh token. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            message=message,
+            data={"errors": errors},
+        )
+
+
 # SPECIFIC EXCEPTIONS
 class SessionInvalidCredentialsException(StandardException):
     def __init__(
@@ -154,6 +168,108 @@ class ModifiedTokenException(StandardException):
     ) -> None:
         message = ResponseMessages.UNAUTHORIZED_ERROR.value
         errors = "The authentication token has been modified. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenNotProvidedException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Refresh token not provided. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenExpiredException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Refresh token has expired. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenNotYetValidException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = (
+            "Refresh token is not yet valid. Please login again or contact support."
+        )
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenMalformedError(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Malformed refresh token. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenInvalidEndpoint(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = (
+            "Invalid endpoint for refresh token. Please login again or contact support."
+        )
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenInvalidException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Invalid refresh token. the provided token is not valid or has been revoked. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class RefreshTokenInvalidDeviceException(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Invalid refresh token data. the provided token is not valid or has been revoked. Please login again or contact support."
 
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,

@@ -11,7 +11,6 @@ from app.modules.shared.presentation.schemas import StandardResponse
 example_docs = {
     "prefix": "/api/v1/example",
     "tags": ["Example"],
-    "dependencies": [Security(no_authentication)],
     "responses": {
         400: {
             "model": StandardResponse,
@@ -168,6 +167,7 @@ example_docs = {
 example_request_docs = {
     "summary": "Endpoint Example",
     "description": "This endpoint returns a greeting message.",
+    "dependencies": [Security(no_authentication)],
     "response_description": "Returns a greeting message.",
     "response_model": ExampleResponse,
     "status_code": HTTPStatus.OK,

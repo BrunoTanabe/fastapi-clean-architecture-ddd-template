@@ -17,6 +17,7 @@ class ResponseMessages(Enum):
     REDIRECT = "Redirecting to the requested resource"
     REDIRECT_AUTHENTICATION_NOTICE = "Continue authentication in the link provided"
     LOGIN_SUCCESS = "User logged in successfully"
+    REFRESH_SUCCESS = "Refresh token generated successfully"
     LOGOUT_SUCCESS = "User logged out successfully"
 
     # CLIENT ERROR MESSAGES

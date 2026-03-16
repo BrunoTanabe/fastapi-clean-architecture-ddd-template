@@ -19,6 +19,7 @@ from app.modules.authentication.domain.entities import (
 from app.modules.authentication.presentation.exceptions import (
     AuthenticationException,
     SessionInvalidCredentialsException,
+    RefreshTokenInvalidDeviceException,
 )
 from app.modules.shared.application.use_cases import SharedUseCases
 from app.modules.shared.application.utils import BRASILIA_TZ
@@ -71,10 +72,10 @@ class AuthenticationUseCases:
                     f"Existing session found for user: {session.user.email} in device: {session.device} with agent: {session.user_agent}. Updating session."
                 )
 
-                session_from_db.update_last_seen_at()
+                session_from_db.update_last_updated_at()
 
                 session_from_db.refresh_token.expires_at = refresh_expires_at
-                session_from_db.refresh_token.generate_created_at()
+                session_from_db.refresh_token.generate_updated_at()
                 session_from_db.refresh_token.update_previous_hashed_jti()
 
                 session_from_db.refresh_token.access_token.expires_at = (
@@ -85,7 +86,7 @@ class AuthenticationUseCases:
 
                 session: Session = await generate_tokens(session_from_db)
                 session: Session = await hash_tokens(session)
-                session.refresh_token.access_token.permissions = session.user.role
+                session.refresh_token.access_token.permission = session.user.role
 
                 await self.repository.update(session)
             else:
@@ -99,16 +100,60 @@ class AuthenticationUseCases:
                 )
 
                 session.refresh_token.generate_created_at()
+                session.refresh_token.generate_updated_at()
                 session.refresh_token.access_token.generate_created_at()
 
                 session: Session = await generate_tokens(session)
                 session: Session = await hash_tokens(session)
-                session.refresh_token.access_token.permissions = session.user.role
+                session.refresh_token.access_token.permission = session.user.role
 
                 await self.repository.create(session)
 
             logger.debug(f"User {session.user.email} logged in successfully.")
             return session
+        except StandardException:
+            raise
+        except DomainError as e:
+            raise DomainException(e)
+        except Exception as e:
+            logger.opt(exception=e).error(
+                "An unexpected error occurred during the login use case."
+            )
+            raise AuthenticationException()
+
+    # UPDATE
+    async def refresh(self, session: Session) -> Session:
+        try:
+            logger.debug(
+                f"Initializing user refresh tokens use case for user: {session.user.email} in device: {session.device}."
+            )
+
+            session_from_db: Session = (
+                await self.repository.get_by_user_id_agent_and_device(session)
+            )
+
+            if not session_from_db:
+                logger.info(
+                    "No existing session found for the user, device and agent. This token probably doesn't belong to this user on this machine, or the device_id has been changed."
+                )
+                raise RefreshTokenInvalidDeviceException()
+
+            session_from_db.refresh_token.generate_updated_at()
+            session_from_db.refresh_token.update_previous_hashed_jti()
+
+            session_from_db.refresh_token.access_token.expires_at = datetime.now(
+                BRASILIA_TZ
+            ) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+            session_from_db.refresh_token.access_token.generate_created_at()
+            session_from_db.refresh_token.access_token.update_previous_hashed_jti()
+
+            session_from_db: Session = await generate_tokens(session_from_db)
+            session_from_db: Session = await hash_tokens(session_from_db)
+            session_from_db.refresh_token.access_token.permission = session.user.role
+            await self.repository.update(session_from_db)
+
+            logger.debug(f"User {session.user.email} refreshed tokens successfully.")
+            return session_from_db
         except StandardException:
             raise
         except DomainError as e:

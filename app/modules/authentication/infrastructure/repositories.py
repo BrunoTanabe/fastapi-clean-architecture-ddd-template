@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
-from app.modules.authentication.domain.entities import Session, AccessToken
+from app.modules.authentication.domain.entities import (
+    Session,
+    AccessToken,
+    RefreshToken,
+)
 from app.modules.authentication.domain.mappers import model_entity_mapper
 from app.modules.authentication.infrastructure.models import (
     SessionModel,
@@ -99,13 +103,9 @@ class PostgresSessionRepository(IAuthenticationRepository):
         try:
             logger.info("Getting access token by hashed_jti from database.")
 
-            statement = (
-                select(AccessTokenModel)
-                .where(
-                    AccessTokenModel.hashed_jti == access_token.hashed_jti,
-                    AccessTokenModel.revoked.is_(False),
-                )
-                .limit(1)
+            statement = select(AccessTokenModel).where(
+                AccessTokenModel.hashed_jti == access_token.hashed_jti,
+                AccessTokenModel.revoked.is_(False),
             )
 
             result = await self.session.execute(statement)
@@ -129,6 +129,44 @@ class PostgresSessionRepository(IAuthenticationRepository):
             )
             raise
 
+    async def get_refresh_token_by_hashed_jti(
+        self, refresh_token: RefreshToken
+    ) -> Optional[RefreshToken]:
+        try:
+            logger.info("Getting refresh token by hashed_jti from database.")
+
+            statement = (
+                select(RefreshTokenModel)
+                .options(joinedload(RefreshTokenModel.access_token))
+                .where(
+                    RefreshTokenModel.hashed_jti == refresh_token.hashed_jti,
+                    RefreshTokenModel.revoked.is_(False),
+                )
+            )
+
+            result = await self.session.execute(statement)
+            refresh_token_model: Optional[RefreshTokenModel] = (
+                result.scalar_one_or_none()
+            )
+
+            if refresh_token_model is None:
+                logger.info("No session found for the given access token hashed_jti.")
+                return None
+
+            refresh_token: RefreshToken = await model_entity_mapper(refresh_token_model)
+
+            logger.info(
+                f"Session retrieved successfully for access token with ID {refresh_token.id}."
+            )
+            return refresh_token
+        except StandardException:
+            raise
+        except Exception as e:
+            logger.opt(exception=e).error(
+                "An error occurred in the get access token by hashed_jti repository."
+            )
+            raise
+
     # UPDATE
     async def update(self, session: Session) -> None:
         try:
@@ -140,6 +178,7 @@ class PostgresSessionRepository(IAuthenticationRepository):
             db_session: SessionModel = await model_entity_mapper(session)
 
             await self.session.merge(db_session)
+
             await self.session.flush()
 
             logger.info(

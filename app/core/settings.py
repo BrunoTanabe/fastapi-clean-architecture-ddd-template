@@ -142,6 +142,9 @@ class Settings(BaseSettings):
     @property
     def SECURITY_NO_AUTH_PATHS(self) -> list[dict[str, str]]:  # noqa
         return [
+            # AUTHENTICATION
+            {"endpoint": "/api/v1/authentication/login/", "method": "POST"},
+            {"endpoint": "/api/v1/authentication/login", "method": "POST"},
             # EXAMPLE
             {"endpoint": "/api/v1/example/", "method": "POST"},
             {"endpoint": "/api/v1/example", "method": "POST"},
@@ -158,6 +161,9 @@ class Settings(BaseSettings):
     def SECURITY_USER_ALLOWED_PATHS(self) -> list[dict[str, str]]:  # noqa
         return [
             *self.SECURITY_NO_AUTH_PATHS,
+            # AUTHENTICATION
+            {"endpoint": "/api/v1/authentication/refresh/", "method": "PATCH"},
+            {"endpoint": "/api/v1/authentication/refresh", "method": "PATCH"},
             # USER
             {"endpoint": "/api/v1/user/me", "method": "GET"},
             {"endpoint": "/api/v1/user/me/", "method": "GET"},

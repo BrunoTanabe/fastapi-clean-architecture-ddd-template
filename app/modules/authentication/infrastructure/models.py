@@ -124,10 +124,10 @@ class SessionModel(Base):
         nullable=False,
     )
 
-    last_seen_at: Mapped[datetime] = mapped_column(
+    last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        name="last_seen_at",
-        comment="Last time the session was used",
+        name="last_update_at",
+        comment="Last time the session was updated",
         default=lambda: datetime.now(BRASILIA_TZ),
         server_default=func.now(),
         onupdate=func.now(),
@@ -205,6 +205,15 @@ class RefreshTokenModel(Base):
         default=lambda: datetime.now(BRASILIA_TZ),
         server_default=func.now(),
         nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        name="updated_at",
+        comment="Timestamp when the record was last updated",
+        default=lambda: datetime.now(BRASILIA_TZ),
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     expires_at: Mapped[datetime] = mapped_column(
