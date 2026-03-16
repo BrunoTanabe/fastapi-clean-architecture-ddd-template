@@ -86,6 +86,10 @@ class RefreshToken:
         self.revoked = True
         self.revoked_at = datetime.now(BRASILIA_TZ)
 
+    def activate(self):
+        self.revoked = False
+        self.revoked_at = None
+
     def generate_created_at(self):
         self.created_at = datetime.now(BRASILIA_TZ)
 
@@ -137,6 +141,10 @@ class AccessToken:
     def revoke(self):
         self.revoked = True
         self.revoked_at = datetime.now(BRASILIA_TZ)
+
+    def activate(self):
+        self.revoked = False
+        self.revoked_at = None
 
     def generate_created_at(self):
         self.created_at = datetime.now(BRASILIA_TZ)

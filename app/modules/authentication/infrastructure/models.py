@@ -162,6 +162,11 @@ class RefreshTokenModel(Base):
             "session_id",
             name="uq_refresh_tokens_session_id",
         ),
+        Index(
+            "ix_hashed_jti_revoked",
+            "hashed_jti",
+            "revoked",
+        ),
     )
     __mapper_args__ = {"eager_defaults": True}
 
@@ -261,8 +266,9 @@ class AccessTokenModel(Base):
             name="uq_access_tokens_refresh_id",
         ),
         Index(
-            "ix_hashed_jti",
+            "ix_hashed_jti_revoked",
             "hashed_jti",
+            "revoked",
         ),
     )
     __mapper_args__ = {"eager_defaults": True}

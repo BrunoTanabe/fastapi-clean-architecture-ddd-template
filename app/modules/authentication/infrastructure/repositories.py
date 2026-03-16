@@ -107,6 +107,8 @@ class PostgresSessionRepository(IAuthenticationRepository):
             conditions = [
                 AccessTokenModel.hashed_jti
                 == session.refresh_token.access_token.hashed_jti,
+                SessionModel.user_agent == session.user_agent,
+                SessionModel.user_id == session.user.id,
                 AccessTokenModel.revoked.is_(False),
                 RefreshTokenModel.revoked.is_(False),
                 SessionModel.blacklisted.is_(False),
@@ -162,6 +164,8 @@ class PostgresSessionRepository(IAuthenticationRepository):
 
             conditions = [
                 RefreshTokenModel.hashed_jti == session.refresh_token.hashed_jti,
+                SessionModel.user_agent == session.user_agent,
+                SessionModel.user_id == session.user.id,
                 RefreshTokenModel.revoked.is_(False),
                 SessionModel.blacklisted.is_(False),
             ]

@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestFormStrict
 from loguru import logger
 
-from app.core.security import no_authentication, authenticate_refresh, authenticate_user
+from app.core.security import (
+    no_authentication,
+    authenticate_refresh,
+    authenticate_logout,
+)
 from app.core.settings import settings
 from app.modules.authentication.application.use_cases import AuthenticationUseCases
 from app.modules.authentication.domain.entities import Session
@@ -33,7 +37,6 @@ from app.modules.shared.presentation.exceptions import (
     StandardException,
     DomainException,
 )
-from app.modules.user.domain.entities import User
 from app.modules.user.presentation.exceptions import CookieManagementException
 
 router = APIRouter(**router_docs)
@@ -144,15 +147,14 @@ async def login(
 @router.patch("/refresh/", **refresh_docs)
 @router.patch("/refresh", include_in_schema=False)
 async def refresh(
-    request: Request,
     response: Response,
-    user: User = Depends(authenticate_refresh),
+    session: Session = Depends(authenticate_refresh),
     use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
 ) -> RefreshResponse:
     try:
-        request_domain = await refresh_entity_mapper(user, request)
+        request_domain = await refresh_entity_mapper(session, False)
         response_domain = await use_case.refresh(request_domain)
-        output = await refresh_entity_mapper(response_domain)
+        output = await refresh_entity_mapper(response_domain, True)
 
         await set_cookies(response, response_domain)
 
@@ -170,17 +172,16 @@ async def refresh(
 @router.delete("/logout/", **logout_docs)
 @router.delete("/logout", include_in_schema=False)
 async def logout(
-    request: Request,
     response: Response,
-    user: User = Depends(authenticate_user),
+    session: Session = Depends(authenticate_logout),
     use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
 ) -> LogoutResponse:
     try:
-        await delete_cookies(response)
+        # await delete_cookies(response)
 
-        request_domain = await logout_entity_mapper(user, request)
+        request_domain = await logout_entity_mapper(session, False)
         response_domain = await use_case.logout(request_domain)
-        output = await logout_entity_mapper(response_domain)
+        output = await logout_entity_mapper(response_domain, True)
 
         return output
     except StandardException:

@@ -63,25 +63,12 @@ async def login_entity_mapper(
 
 
 async def refresh_entity_mapper(
-    session: Union[User, Session],
-    request: Optional[Request] = None,
+    session: Session,
+    output: bool = False,
 ) -> Union[Session, RefreshResponse]:
-    if isinstance(session, User) and request is not None:
-        return Session(
-            user=session,
-            ip_address=request.headers.get("x-forwarded-for")
-            or request.headers.get("x-real-ip")
-            or request.client.host,
-            user_agent=request.headers.get("user-agent"),
-            device=getattr(request.state, "device_id", None),
-            accept_language=request.headers.get("accept-language"),
-            accept_encoding=request.headers.get("accept-encoding"),
-            origin=request.headers.get("origin"),
-            referer=request.headers.get("referer"),
-            location=getattr(request.state, "location", None),
-            refresh_token=RefreshToken(access_token=AccessToken()),
-        )
-    elif isinstance(session, Session) and request is None:
+    if isinstance(session, Session) and not output:
+        return session
+    elif isinstance(session, Session) and output:
         return RefreshResponse()
     else:
         raise ValueError(
@@ -90,25 +77,12 @@ async def refresh_entity_mapper(
 
 
 async def logout_entity_mapper(
-    session: Union[User, Session],
-    request: Optional[Request] = None,
+    session: Session,
+    output: bool = False,
 ) -> Union[Session, LogoutResponse]:
-    if isinstance(session, User) and request is not None:
-        return Session(
-            user=session,
-            ip_address=request.headers.get("x-forwarded-for")
-            or request.headers.get("x-real-ip")
-            or request.client.host,
-            user_agent=request.headers.get("user-agent"),
-            device=getattr(request.state, "device_id", None),
-            accept_language=request.headers.get("accept-language"),
-            accept_encoding=request.headers.get("accept-encoding"),
-            origin=request.headers.get("origin"),
-            referer=request.headers.get("referer"),
-            location=getattr(request.state, "location", None),
-            refresh_token=RefreshToken(access_token=AccessToken()),
-        )
-    elif isinstance(session, Session) and request is None:
+    if isinstance(session, Session) and not output:
+        return session
+    elif isinstance(session, Session) and output:
         return LogoutResponse()
     else:
         raise ValueError(

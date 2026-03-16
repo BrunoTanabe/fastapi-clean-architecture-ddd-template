@@ -2,7 +2,11 @@ from http import HTTPStatus
 
 from fastapi import Security
 
-from app.core.security import no_authentication, authenticate_refresh, authenticate_user
+from app.core.security import (
+    no_authentication,
+    authenticate_refresh,
+    authenticate_logout,
+)
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
     LogoutResponse,
@@ -320,7 +324,7 @@ logout_docs = {
         "Invalidates the authenticated session and removes authentication cookies. "
         "The endpoint requires a valid authenticated user."
     ),
-    "dependencies": [Security(authenticate_user)],
+    "dependencies": [Security(authenticate_logout)],
     "response_description": (
         "Successful logout. Authentication cookies are removed and the JSON body "
         "returns a logout confirmation message."

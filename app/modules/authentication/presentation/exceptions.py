@@ -118,14 +118,12 @@ class AuthenticationTokenMalformedError(StandardException):
         )
 
 
-class AuthenticationTokenNotProvidedException(StandardException):
+class AuthenticationCookiesNotProvidedException(StandardException):
     def __init__(
         self,
     ) -> None:
         message = ResponseMessages.UNAUTHORIZED_ERROR.value
-        errors = (
-            "Authentication token not provided. Please login again or contact support."
-        )
+        errors = "Authentication cookies doest not exist. Please login again or contact support."
 
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,
@@ -284,6 +282,20 @@ class AuthenticationInvalidDeviceException(StandardException):
     ) -> None:
         message = ResponseMessages.UNAUTHORIZED_ERROR.value
         errors = "Invalid authentication data. the provided token is not valid or has been revoked. Please login again or contact support."
+
+        super().__init__(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            message=message,
+            data={"errors": errors},
+        )
+
+
+class LogoutInvalidEndpoint(StandardException):
+    def __init__(
+        self,
+    ) -> None:
+        message = ResponseMessages.UNAUTHORIZED_ERROR.value
+        errors = "Invalid endpoint for logout. Please login again or contact support."
 
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,
