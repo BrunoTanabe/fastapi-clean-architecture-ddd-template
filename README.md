@@ -39,6 +39,8 @@ This README documents the project's structure, explaining the purpose of each fo
   * [Installing Dependencies](#installing-dependencies)
   * [Running the Application](#running-the-application)
   * [Using Docker (Optional)](#using-docker-optional)
+  * [Using Makefile](#using-makefile)
+* [Database Migrations](#database-migrations)
 * [Final Considerations](#final-considerations)
 
 ## Architecture Overview
@@ -150,6 +152,9 @@ At the root of the repository are configuration files, environment files, and ge
 * **.venv/**: Virtual environment directory where Python project dependencies are installed locally. This is created and managed by the **uv** package manager (or other tools). It contains the Python binaries and all packages installed for the project, isolated from the global system. This directory is ignored by Git.
 * **Dockerfile:** Configuration file for **Docker** that defines how to build a container image of the application. It specifies the base image (typically Python), copies project files, installs dependencies (using `pyproject.toml`/`uv.lock`), and sets the startup command (usually running a Uvicorn server for the FastAPI app). With the Dockerfile, a backend container image can be created, facilitating deployment in standardized environments.
 * **docker-compose.yaml:** Configuration file for **Docker Compose** describing how to run multi-service containers. In this project, `docker-compose.yaml` can orchestrate the application container (defined by the Dockerfile) along with other services the backend may require, such as a database or cache. For example, a PostgreSQL or Redis service can be configured here for development. This file simplifies spinning up the entire dev/production environment with a single command.
+* **Makefile:** A file containing a set of directives used by the `make` build automation tool. It provides convenient shortcuts for common tasks such as starting the application with Docker, running tests, or cleaning up the environment. For example, `make start` can be used to spin up the Docker containers.
+* **alembic.ini:** Configuration file for **Alembic**, a lightweight database migration tool for usage with the SQLAlchemy Database Toolkit for Python. It defines how migrations should be run, where the migration scripts are located, and how to connect to the database for migration purposes.
+* **migrations/**: Directory containing database migration scripts. This folder is managed by Alembic and stores the version history of the database schema. Each modification to the database structure is stored as a separate revision script here.
 * **README.md:** Project documentation (this file). Contains architectural explanations, usage instructions, etc., serving as a guide for developers using or maintaining the template.
 * **requirements.txt:** List of project dependencies. Used to install project dependencies in environments that do not support `pyproject.toml` directly (e.g., some servers or tools). It contains the exact versions of installed packages, allowing reproducibility. However, the preferred approach is to use `pyproject.toml` with the **uv** manager.
 * **pyproject.toml:** Project configuration file, following the [PEP 621](https://peps.python.org/pep-0621/) standard and used by the **uv** package manager (and also supported by build tools like Poetry, etc.). This file defines:
@@ -172,9 +177,9 @@ Main components inside `app/`:
 * **`app.py`:** The main FastAPI application file—the backend **entry point**. Inside it we typically instantiate the FastAPI app and include the routes defined in the various modules. For example:
 
   * Creates the object `app = FastAPI(...)`, configuring title, version, etc.
-  * Loads initial settings (e.g., setting log level from `core/logging.py`, or reading configs from `core/config.py`).
-  * Includes each module’s routers using `app.include_router(...)`, registering the routes from the different parts of the API. In our case it will include the router from the example module (and, in the future, from other modules).
-  * Defines startup or shutdown event handlers if needed (e.g., a `startup` function to connect to the database via `core/database.py`, or `shutdown` to close connections).
+  * Loads initial settings (e.g., setting log level from `core/logging.py`, or reading configs from `core/security.py`).
+  * Includes each module’s routers using `app.include_router(...)`, registering the routes from the different parts of the API.
+  * Defines startup or shutdown event handlers if needed (e.g., a `lifespan` function to connect to the database via `core/database.py`).
 
   In short, `app.py` assembles the application by composing pieces defined elsewhere. This file (more precisely, the `app` object in it) is what you point to when running the server.
 
@@ -184,398 +189,40 @@ Main components inside `app/`:
 
 The `app/core` package contains foundational configuration modules and utilities for the application. These are low-level or cross-cutting components that are usually used by multiple parts of the system. Details of the files inside `core/`:
 
-* **`core/database.py`:** Module responsible for setting up the database connection or other persistent data resources. For example, if we use SQLAlchemy, this is where we might instantiate the connection engine using the DB URL from the settings (`settings.database_url`), create a sessionmaker, and provide utility functions to obtain a session (to be used as a FastAPI dependency). If we don’t use a relational DB, this module could configure a NoSQL connection, or—if the app is AI-focused—manage a vector store, etc. In short, it’s the central point for initializing and sharing data connections. For example:
-
-  ```python
-  from sqlalchemy import create_engine
-  from sqlalchemy.orm import sessionmaker
-  from app.core.settings import settings
-
-  engine = create_engine(settings.database_url)
-  SessionLocal = sessionmaker(bind=engine)
-
-  def get_db():
-      db = SessionLocal()
-      try:
-          yield db
-      finally:
-          db.close()
-  ```
-
-  In contexts without a database this file may remain minimal or empty, but it’s ready to integrate persistence cleanly.
-
-* **`core/exception_handler.py`:** Defines global exception handlers for the application. Here we can configure how FastAPI should handle unhandled errors, converting specific exceptions into appropriate HTTP responses. For instance, we can catch validation exceptions and return 422 errors, or convert DB errors into 500s. This centralizes error handling and ensures all parts of the app follow a consistent pattern. A simple example:
-
-  ```python
-  from fastapi import Request, HTTPException
-  from fastapi.responses import JSONResponse
-
-  async def http_exception_handler(request: Request, exc: HTTPException):
-      return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-  ```
-
-  In `app.py`, we register this handler with `app.add_exception_handler(HTTPException, http_exception_handler)`.
-
-* **`core/exceptions.py`:** Defines a base class to be inherited by custom application exceptions (usually inheriting from `Exception` or `BaseException`). These custom exceptions can represent domain-specific or business-logic errors, allowing us to treat those cases differently. For example, we might have a `DomainError` exception raised when a business rule fails, which the global handler converts into a suitable HTTP error.
-
-  ```python
-  class DomainError(Exception):
-      """Base exception for domain errors."""
-      pass
-  ```
-
-* **`core/logging.py`:** Sets up the application’s global **logging** configuration. Before the server starts we want to configure how logs will be formatted and what detail level will be shown (info, debug, error, etc.). This file uses Python’s built-in `logging` module to configure handlers, formatters, and levels. For example, we can define a unified log format or integrate the `loguru` library if preferred. At app startup (`app.py`), we call the logging setup function. A possible content:
-
-  ```python
-  import logging
-
-  LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-  def setup_logging():
-      logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-      # ... additional settings if needed
-  ```
-
-  This way, when the application starts we call `setup_logging()` and ensure well-formatted logs at the correct level. A solid log configuration is crucial for debugging and production monitoring.
-
-* **`core/middleware.py`:** Defines global middlewares for the application. Middlewares are functions that intercept requests and responses, allowing you to add common behaviors such as authentication, request logging, CORS handling, etc. In this file we can define middlewares applied to every route. For example, a middleware to log each received request and its response:
-
-  ```python
-  from fastapi import Request
-  from starlette.middleware.base import BaseHTTPMiddleware
-
-  class LoggingMiddleware(BaseHTTPMiddleware):
-      async def dispatch(self, request: Request, call_next):
-          response = await call_next(request)
-          # Here you can log request/response details
-          return response
-  ```
-
-  In `app.py`, we register this middleware with `app.add_middleware(LoggingMiddleware)`.
-
-* **`core/resources.py`:** Module for managing static resources or configuration files the application may need. For example, if the app uses HTML templates, static files (CSS, JS), or additional config files, we can define functions here to load those resources. This centralizes access to non-code files required by the app. It can also initialize and tear down resources like external service connections (e.g., third-party APIs) that aren’t databases.
-
-* **`core/schemas.py`:** Defines **Pydantic schemas** inherited by other parts of the app. Schemas are used for validating input and output data, especially in APIs. Here we can define common schemas reused across multiple modules, such as `BaseResponse`, `ErrorResponse`, or other generics that don’t belong to a specific module. For example:
-
-  ```python
-  from pydantic import BaseModel
-
-  class BaseResponse(BaseModel):
-      success: bool
-      message: str | None = None
-  ```
-
-  These schemas can be imported and used in different modules to ensure consistency in response structure.
-
-* **`core/security.py`:** Module for **shared security** functionality. For example, utilities for password hashing, JWT generation and verification, CORS policies, authentication contexts, etc. The idea is to centralize security aspects used in multiple modules.
-
-  * If the app requires user authentication, this file might include functions to create/verify JWT tokens (e.g., with `python-jose`), functions to hash/verify passwords (e.g., with `passlib`).
-  * It can also define OAuth credentials or authorization scopes.
-
-  **Note:** Route-specific auth/authorization may be configured in the *routers* (presentation layer), but generic support functions (like verifying a token signature, fetching the current user from the token, etc.) can live here in core. This avoids repetition and ensures the same security utilities are used throughout the project.
-
-In summary, `app/core/` hosts code that is cross-cutting and domain-agnostic, forming the foundation of the entire application.
-
-* **`core/settings.py`:** Application **configuration** module. Here we define classes and objects that load environment variables (e.g., using `pydantic_settings.BaseSettings`). In a typical FastAPI project this file defines a `Settings` class with attributes for every needed configuration (e.g., `APP_NAME`, `DEBUG`, `DATABASE_URL`, API credentials, etc.). The `Settings` class loads values from the `.env` file by default. A simplified example:
-
-  ```python
-  from pydantic_settings import BaseSettings
-
-  class Settings(BaseSettings):
-      app_name: str = "FastAPI Clean Architecture DDD Template"
-      debug: bool = False
-      database_url: str  # etc., other config fields...
-      class Config:
-          env_file = ".env"
-
-  settings = Settings()
-  ```
-
-  Other parts of the code then import `settings` to access configurations (e.g., `settings.database_url`). This pattern centralizes all configs in one place and lets you change behavior via environment variables without altering code. Remember to keep secrets (e.g., secret keys) only in the .env and not commit them.
-
-* **`core/utils.py`:** Module for general utility functions that don’t fit elsewhere. Here we can place helper functions used in multiple places within `core`, such as string formatting, date manipulation, generic validations, etc. The goal is to avoid code duplication and centralize simple logic that can be reused.
+* **`core/database.py`:** Module responsible for setting up the database connection or other persistent data resources. It uses SQLAlchemy with asynchronous support (`asyncpg`). It configures the connection engine using the DB URL from the settings (`settings.database_url`), creates an asynchronous session maker (`async_sessionmaker`), and provides utility functions to obtain a session (to be used as a FastAPI dependency). This module also handles database initialization and connection management.
+* **`core/exception_handler.py`:** Centralized exception handling logic. It defines how the application responds to various errors, ensuring consistent error responses (e.g., JSON format with error codes) across the API.
+* **`core/logging.py`:** logging configuration using `loguru`. configured to intercept standard python logging messages and format them for better readability and structure, supporting different log levels and outputs (console, file, etc.).
+* **`core/middleware.py`:** contains middleware definitions for processing requests and responses globally. examples include cors configuration, request timing, or request id injection.
+* **`core/migrations.py`:** utilities for programmatically running database migrations, possibly integrated into the application startup or a separate management command.
+* **`core/resources.py`:** manages shared resources or constants used throughout the application.
+* **`core/security.py`:** handles security-related implementing mechanisms like password hashing (using argon2), jwt (json web token) generation and validation, and cookie management for secure session handling. it provides utilities for encrypting/decrypting sensitive data and verifying user credentials.
+* **`core/settings.py`:** defines the application's configuration schema using `pydantic-settings`. it reads environment variables from `.env` files and maps them to typed python objects, validating configuration values at startup.
 
 #### `app/modules/` Directory (Feature Modules)
 
-This directory is where we organize code by **feature or domain context**. Each sub-folder inside `modules` represents a **module** or **bounded context** of the application, encapsulating domain logic, use cases, interfaces, and infrastructure details related to that functionality.
-
-For example, we might have modules like `users`, `orders`, `payments`, `recommendation`, etc., each containing its entities, use cases, repositories, routes, etc. In our template we have an example module called **`example/`** that demonstrates the structure. New modules to be created in the future should follow the same internal organization pattern.
-
-Structure of a typical module (using the `example` module as a model):
-
-##### Example Module: `app/modules/example/`
-
-The **example** module was generated as a reference and starting point. It implements the suggested architecture within a fictional “example” domain. Inside it there are sub-folders for each logical layer of the module:
-
-* **application/** – Application layer (use cases and interfaces).
-* **domain/** – Domain layer (entities and business logic).
-* **infrastructure/** – Infrastructure layer (persistence details, external APIs, etc.).
-* **presentation/** – Presentation layer (FastAPI endpoints, request/response schemas, dependency injection).
-
-Each sub-folder contains specific files as described below:
-
-###### Domain
-
-This sub-folder defines the core business rules of the module. The files here describe **what** the principal domain concepts are and how they behave, with no dependency on external details (database, FastAPI, etc.).
-
-* **`entities.py`:** Defines the module’s **Domain Entities**. Entities are classes or structures representing the fundamental business objects the module deals with, including their attributes and possibly basic internal logic. For example, in a user module we could have a `User` entity with id, name, email, and methods to verify a password or change a profile. Entities should encapsulate invariants and simple rules related to themselves.
-
-  In Python, entities can be implemented as normal classes or even dataclasses, depending on need. The important thing is that they don’t depend on how they are stored or displayed—they are purely business models. In an AI context, if this module involved something like a “Model” or “Dataset,” those could be entities as well (representing configuration or state of those objects).
-
-* **`mappers.py`:** This file contains functions or classes that convert domain entities to formats suitable for persistence (such as ORM models) and vice versa. For instance, if we’re using SQLAlchemy, here we could have functions that transform a `User` entity into a `UserModel` SQLAlchemy model and another function that does the reverse. This keeps entities pure and decoupled from persistence details.
-
-  Mappers are useful to keep conversion logic centralized, avoiding code duplication in repositories or services. If the module doesn’t require complex mapping, this file can be omitted or stay empty.
-
-* **`value_objects.py`:** Contains definitions of types or classes that represent domain values with their own logic or invariants but no unique identity like entities. In Domain-Driven Design, **Value Objects** are immutable and compared by value, not by identity.
-
-  Common examples: a CPF, an Email, a monetary amount, coordinates, etc., which you might represent with their own class to enforce formatting or validation. In this file you can define classes for such specific values, encapsulating checks (e.g., an `Email` class that validates format in the constructor). In the example module we might have something like a `Score` or another demonstrative VO.
-
-  Keeping value objects separate helps make the code more expressive and ensures domain data integrity. If your domain doesn’t have complex value objects, this file can remain empty or be omitted, but the structure is ready if needed.
-
-* **`services.py`:** This file gathers **complex domain logic** that doesn’t fit within a single entity or concerns interaction between multiple entities. Domain Services are functions or classes implementing business rules using entities and value objects, but that don’t belong exclusively to any specific entity.
-
-  For example, in a financial domain we might have a domain service to calculate interest or validate a transaction between two accounts (involving two `Account` entities). In an AI context there could be a domain service to run an inference pipeline or combine results from multiple models, if that is considered part of the domain rather than mere infra.
-
-  These domain services **should still not access infrastructure**. They operate on domain objects loaded into memory (probably by repositories) and apply pure logic to them. If they need data from outside or must save results, they should receive that data via parameters or return results for higher layers (application) to persist.
-
-  In short, put in `services.py` business rules involving more elaborate logic or multiple objects, keeping entity code lean.
-
-###### Application
-
-The `application` sub-folder implements the module’s **use cases** and defines **interfaces (ports)** that connect the application layer with other layers. This layer orchestrates the actions required to fulfill operations requested from the outside world (e.g., an API endpoint), coordinating entities, calling domain services, and using repositories (interfaces).
-
-* **`interfaces.py`:** Defines the **abstract interfaces** or contracts that the application layer expects to perform certain infrastructure tasks. Typically the main interfaces here are the domain **Repositories**.
-
-  For example, if the `example` domain needs to read and write objects from a database, here we define an abstract repository interface (e.g., `class ExampleRepositoryInterface(ABC): ...`) with methods like `list_objects()`, `get_by_id(id)`, `save(obj)`, etc. These interfaces can be abstract classes using `abc.ABC` and `@abstractmethod` or Python 3.8+ **protocols** (`typing.Protocol`) describing the expected methods. The domain/application then depends on this interface, without knowing which concrete implementation will be used.
-
-  Besides repositories, we can define interfaces for other external services the application uses, e.g., an email service interface, an AI provider interface (if you want to abstract calls to external models), etc. Anything the application logic needs to call but which is an infrastructure detail can be formalized as an interface here.
-
-  By isolating interfaces here we apply the **Dependency Inversion** principle: the application layer defines the contract, and the concrete implementation comes from infrastructure (inverting the dependency). This lets us easily swap implementations (e.g., use an in-memory repository for tests and a real SQL repository in production, both fulfilling the same interface).
-
-* **`use_cases.py`:** Contains the implementation of the module’s **Use Cases**. Each use case represents a specific action or functionality the system provides, aggregating the logic needed to accomplish it.
-
-  Use cases can be implemented in different ways:
-
-  * As simple **functions** when the logic is small.
-  * As **classes** (e.g., one class per use case with an `execute()` method, or making the class callable via `__call__`). The class approach is handy if the use case needs to inject a repository via the constructor and then execute.
-
-  For example, suppose the example module manages “foo.” We might have a `CreateFoo` and a `ListFoo` use case. In code we could have:
-
-  ```python
-  from app.modules.example.domain.entities import Foo
-  from app.modules.example.application.interfaces import FooRepositoryInterface
-
-  class FooUseCase:
-      def __init__(self, repo: FooRepositoryInterface):
-          self.repo = repo
-      
-      def create_foo(self, data: dict) -> Foo:
-          # Validate and create entity
-          foo = Foo(**data)
-          # Business rules (call domain services if needed)
-          # ...
-          # Persist using the repository
-          saved_foo = self.repo.save(foo)
-          return saved_foo
-
-      def list_foos(self) -> list[Foo]:
-          # Get all Foos from the repository
-          return self.repo.list()
-  ```
-
-  In this example the `FooUseCase` receives a repository implementation via injection (in the constructor) and uses it to store the created entity. It coordinates entity creation and rule application. The same style applies to read use cases: obtain data from the repo, possibly apply some rule (e.g., filter, sort, calculate something), and return the result.
-
-  The important point is that **Use Cases know nothing about HTTP, JSON, or API details**—that’s handled in the presentation layer. They receive and return domain objects (or plain Python structures) and can raise business exceptions if something prevents execution (e.g., “Foo already exists,” “Invalid data,” etc.), which the presentation layer will transform into appropriate HTTP responses.
-
-  We can implement multiple use cases in `use_cases.py`. If the file gets too large, a good practice is to split by functionality (e.g., one file per complex use case, or grouping related ones). But the template initially leaves a single file for simplicity.
-
-* **`utils.py`:** Contains utility functions specific to the application layer. Here we can place helper functions used by multiple use cases, such as common validations, data formatting, etc. The goal is to avoid duplication and centralize simple logic reusable across different use cases.
-
-  For example, if several use cases need to validate input formats (like checking whether an email is valid), we can have a function `validate_email(email: str) -> bool` here. The use cases can then call this function instead of duplicating the logic.
-
-###### Infrastructure
-
-The module’s `infrastructure` sub-folder contains the concrete implementations of the technology details required by the module, fulfilling the interfaces defined in the application layer. Here we deal with persistence, external calls, and anything involving external resources or framework details.
-
-* **`models.py`:** Defines the **infrastructure data models**, typically database models or ORM mappings. For example, if we use **SQLAlchemy**, this file can declare SQLAlchemy model classes corresponding to the domain entities, with their tables, columns, and relationships. Sometimes the domain entities may coincide structurally with the DB models, but that isn’t required—we may have differences (e.g., technical fields in the DB model that don’t exist in the entity, or vice versa).
-
-  Example (using SQLAlchemy ORM):
-
-  ```python
-  from sqlalchemy import Column, Integer, String
-  from app.core.database import Base
-
-  class FooModel(Base):
-      __tablename__ = "foo"
-      id = Column(Integer, primary_key=True, index=True)
-      name = Column(String, index=True)
-      description = Column(String)
-      # etc...
-  ```
-
-  Where `Base` would be the declarative base class imported from `core/database.py`. Repositories use these models to perform CRUD operations. If you use another kind of persistence (e.g., an ODM for Mongo, or direct access via client libraries) you might not have a formal “models.py,” but you will still have infrastructure-specific data representations here (e.g., Mongo schemas or JSON document mappings).
-
-  In AI scenarios, `models.py` could contain classes to interact with a pre-trained ML model or endpoint, but usually that would be more of a service than a data model. In that case you could create infrastructure classes to encapsulate calls to external AI models (e.g., the OpenAI API)—those classes could reside here or in `repositories.py` depending on how you categorize them (are they knowledge repositories or external services? You can treat them similarly).
-
-* **`repositories.py`:** Contains the **concrete repository implementations** defined in `application/interfaces.py`. Here we write classes (or functions) that access the real data source to retrieve or save information.
-
-  Continuing the Foo example, if `interfaces.py` defines `FooRepositoryInterface` with certain methods, `repositories.py` will have a `FooRepository` class (implementing `FooRepositoryInterface`) that performs the actual operations using the database or other means.
-
-  Example:
-
-  ```python
-  from app.modules.example.application.interfaces import FooRepositoryInterface
-  from app.modules.example.infrastructure.models import FooModel
-  from app.core.database import SessionLocal
-
-  class FooRepository(FooRepositoryInterface):
-      def __init__(self, db_session=None):
-          self.db = db_session or SessionLocal()
-
-      def list(self) -> list[Foo]:
-          results = self.db.query(FooModel).all()
-          # Map FooModel (ORM) to Foo entity (domain.entities)
-          return [Foo.from_model(m) for m in results]
-
-      def get_by_id(self, id: int) -> Foo | None:
-          model = self.db.query(FooModel).get_alembic_version(id)
-          return Foo.from_model(model) if model else None
-
-      def save(self, foo: Foo) -> Foo:
-          model = FooModel.from_entity(foo)
-          self.db.add(model)
-          self.db.commit()
-          self.db.refresh(model)
-          return Foo.from_model(model)
-  ```
-
-  *(Note: methods `from_model` and `from_entity` would be helper methods to convert between domain entities and ORM models, which you might implement to keep the domain separate from the ORM layer.)*
-
-  In this example, the repository receives a database session (which we can obtain via `app.core.database.SessionLocal`). In FastAPI we’ll use dependency injection to provide one session per request (see `dependencies.py` in the presentation layer). The repository performs the query or persists data and returns domain objects.
-
-  If the application uses a different database or an external API, this repository could call the appropriate endpoints, parse the response, and transform it into domain entities. For instance, if `example` were a module that fetches data from an external service, the repository might use `httpx` (included via `fastapi[standard]`) to make requests and then build entities.
-
-  **Important:** The repository is part of infrastructure, so it can and should know both infrastructure models (`FooModel`, or external API details) and domain entities (`Foo`). It acts as an adapter converting between the two worlds. The logic here should be limited to data operations (queries, conversions), not business rules (those belong in domain/application).
-
-###### Presentation
-
-The `presentation` sub-folder defines how the module exposes its functionalities to the outside world—here via a web API (FastAPI). It houses the **routers** (controllers) with HTTP endpoints, the **Pydantic schemas** for validation/serialization, and the module-specific **dependencies** (e.g., repository providers or authentication providers for use in the endpoints).
-
-* **`routers.py`:** Defines the API routes (endpoints) for this module. Typically we create a `router = APIRouter()` object and decorate Python functions with HTTP verbs (@router.get, @router.post, etc.) for each needed endpoint.
-
-  Each endpoint function should handle:
-
-  * Receiving validated inputs (path params, query params, body) using the schemas (see below).
-  * Obtaining required instances via dependencies (e.g., a repository or the current authenticated user).
-  * Calling the appropriate use case in the application layer, passing the necessary data.
-  * Handling business exceptions raised by the use cases (e.g., converting a “not found” exception into an HTTP 404, or a validation error into 400).
-  * Returning the result (converting to an output schema if it’s a complex object, or simply returning basic types that FastAPI will convert automatically).
-
-  For example, suppose a GET endpoint to list Foos:
-
-  ```python
-  from fastapi import APIRouter, Depends, HTTPException
-  from app.modules.example.presentation.schemas import FooOut
-  from app.modules.example.application.use_cases import ListFoosUseCase
-  from app.modules.example.presentation.dependencies import get_foo_repository
-
-  router = APIRouter(prefix="/foo", tags=["Foo"])
-
-  @router.get_alembic_version("/", response_model=list[FooOut])
-  def list_foos(repo = Depends(get_foo_repository)):
-      use_case = ListFoosUseCase(repo)
-      foos = use_case.execute()
-      return foos  # FastAPI will convert each Foo via FooOut schema
-  ```
-
-  In this pseudo-code:
-
-  * We use `Depends(get_foo_repository)` to inject a concrete repository instance (defined in `infrastructure`) that satisfies the expected interface.
-  * We instantiate the `ListFoosUseCase`, providing the repository.
-  * We execute and obtain the result (a list of `Foo` entities).
-  * We return that list; FastAPI uses the `response_model` `list[FooOut]` to filter and serialize the response as defined in the schema.
-  * Error handling: if `execute()` raised an exception we could catch it and raise the corresponding `HTTPException`.
-
-  The `routers.py` file can contain multiple routes (GET, POST, PUT, DELETE) according to the module’s operations. If the routes become numerous, we can split into multiple files (e.g., `routers_public.py`, `routers_admin.py`) and include them all in a main APIRouter, but the template keeps a single file for simplicity.
-
-  Finally, in `app.py`, the example module’s router would be included in the main app:
-
-  ```python
-  from app.modules.example.presentation.routers import router as example_router
-  app.include_router(example_router)
-  ```
-
-  possibly with a prefix (e.g., a global `/api/v1`, or specific prefixes if desired).
-
-* **`docs.py`:** This file is optional and can be used to separate documentation specific to the module, such as endpoint descriptions, usage examples, or additional route details for better code organization when the docs are extensive. However, in many cases endpoint documentation can be done directly in the routes using docstrings and FastAPI annotations, so this file can remain empty or be omitted.
-
-* **`exceptions.py`:** Defines exceptions specific to the module that may be raised by endpoints or use cases. These exceptions can signal domain-specific errors (e.g., “Foo already exists,” “Foo not found”) and can be caught by the global exception handler (`core/exception_handler.py`) to return appropriate HTTP responses.
-
-  For example, we might have:
-
-  ```python
-  class FooAlreadyExistsException(Exception):
-      """Exception raised when a Foo already exists."""
-      pass
-  ```
-
-  Then, within use cases or routes, we can raise this exception when needed, and the global handler will turn it into an HTTP 409 Conflict response.
-
-* **`schemas.py`:** Defines the **Pydantic Schemas** used to validate and serialize input and output data for this module’s API endpoints. Pydantic (v2, integrated via FastAPI) allows creation of model classes representing the expected/returned JSON structure, with automatic type validation.
-
-  Typically we’ll have:
-
-  * **Input Schemas**: Represent POST/PUT request bodies or complex parameters. Example: `FooCreate` with required fields to create a Foo.
-  * **Output Schemas**: Represent how the entity is exposed through the API. Example: `FooOut` with fields to return to the client (usually matching entity fields, minus secrets or irrelevant ones).
-
-  In FastAPI, we use these schemas in route functions: function parameters for body (e.g., `foo: FooCreate` gets automatically populated and validated) and `response_model=FooOut` for response conversion.
-
-  In the example module, we might have in `schemas.py`:
-
-  ```python
-  from pydantic import BaseModel
-
-  class FooBase(BaseModel):
-      nome: str
-      descricao: str
-
-  class FooCreate(FooBase):
-      pass  # Same fields for now, but separated in case of future differences
-
-  class FooOut(FooBase):
-      id: int
-
-      class Config:
-          from_attributes = True  # Allows creating FooOut from ORM/dataclass with matching attributes
-  ```
-
-  Here we define a base schema with shared fields, a creation schema (same as base for now), and an output schema that includes the id. `from_attributes = True` is a Pydantic v2 setting that allows automatic conversion from objects with matching attributes (useful when returning domain entities or ORM models; FastAPI/Pydantic can extract the data).
-
-  Schemas serve as the API contract—they document and validate the expected format. Keep them updated as the domain evolves, but don’t include fields that shouldn’t be exposed (e.g., passwords, secrets, etc.).
-
-* **`dependencies.py`:** Defines FastAPI **dependency functions** specific to the module. These functions use FastAPI’s **Dependency Injection** system (`fastapi.Depends`) to provide ready-to-use objects for endpoints, keeping route code cleaner and decoupled from object creation.
-
-  Common dependencies defined here include:
-
-  * **Repository or service instantiation**: e.g., `def get_foo_repository():` that instantiates and returns a `FooRepository` (from infrastructure). It may also manage DB sessions (e.g., binding a repo to a SQLAlchemy session from `core/database.get_db()`).
-  * **Authentication/authorization**: e.g., `def get_current_user()` that checks the JWT token in the Authorization header (using `core/security.py` functions) and returns the current user or raises a 401 exception. Though this might be globally reused, if it’s module-specific, it can reside here.
-  * Any other logic for preparing arguments for endpoints: e.g., verifying if an entity exists before reaching the endpoint (loading from repo and injecting, or raising 404 if not).
-
-  In our example, a simple `get_example_repository`:
-
-  ```python
-  from app.modules.example.infrastructure.repositories import FooRepository
-  from app.core.database import get_db
-
-  def get_foo_repository(db=Depends(get_db)):
-      return FooRepository(db_session=db)
-  ```
-
-  FastAPI will first resolve `get_db` (likely providing a per-request DB session), then pass that session to `FooRepository` and return the instance. The route function then receives a ready-to-use `FooRepository`, unaware of its creation details.
-
-  Using `dependencies.py` promotes reuse and centralization: if we want to change how we obtain the repository (e.g., switch to a fake implementation for testing, or add caching), we do it in one place. It also simplifies route testing, as we can override dependencies in FastAPI’s TestClient if needed.
-
-To summarize the structure of a **module**: the **Presentation** layer (routers) receives the request and uses **Dependencies** to get **Repositories** (Infra), then creates a **Use Case** (Application) to execute logic using **Entities/Services** (Domain), possibly persisting/querying via the repository, and returning the result which the router sends back to the client. Each part does its job and stays relatively isolated.
+This directory contains the feature-specific modules of the application. Each module (e.g., `authentication`, `user`, `example`) follows a DDD-inspired structure with layers:
+
+* **Authentication (`app/modules/authentication/`):**
+  * Manages user login, logout, and token refreshing.
+  * Handles JWT creation and cookie setting for secure authentication.
+  * **Presentation:** Routers for `/auth/login`, `/auth/logout`, `/auth/refresh`.
+  * **Domain:** Entities like `Token`, `UserCredentials`.
+  * **Application:** Use cases for verifying credentials and generating tokens.
+
+* **User (`app/modules/user/`):**
+  * Manages user accounts (registration, profile updates, retrieval).
+  * **Presentation:** Routers for `/users/` (CRUD operations).
+  * **Domain:** User entity and rules.
+  * **Application:** Use cases for creating and managing users.
+
+* **Example Module (`app/modules/example/`):**
+  * A template module demonstrating the architectural pattern.
+
+Each module typically has verify structure:
+* **Domain:** `entities.py`, `value_objects.py`, `services.py` (Pure business logic).
+* **Application:** `use_cases.py`, `interfaces.py`, `dtos.py` (Orchestration).
+* **Infrastructure:** `repositories.py`, `models.py` (Database implementation).
+* **Presentation:** `routers.py`, `schemas.py` (API endpoints).
 
 ### `docs/` Directory (Documents)
 
@@ -704,24 +351,28 @@ By maintaining good test discipline, we gain confidence to evolve the project wi
 
 ## Project Dependencies
 
-This template already includes some Python dependencies pre-installed and pre-configured as defined in `pyproject.toml` and `uv.lock`. Here's a summary of the main ones:
+The project relies on a modern stack of Python libraries to ensure performance, security, and maintainability. Key dependencies include:
 
-* **FastAPI (v0.115.13)** – Modern high-performance ASGI web framework, ideal for building RESTful APIs and easily integrating AI components. We use `fastapi[standard]`, which includes useful extras:
+*   **FastAPI** (`fastapi[standard]>=0.135.1`): High-performance web framework for building APIs with Python.
+*   **Alembic** (`alembic>=1.18.4`): Database migration tool for SQLAlchemy.
+*   **SQLAlchemy** (`sqlalchemy>=2.0.48`): SQL toolkit and Object-Relational Mapping (ORM) library.
+*   **AsyncPG** (`asyncpg>=0.31.0`): A fast PostgreSQL database client library for Python asyncio.
+*   **Psycopg** (`psycopg>=3.3.3`, `psycopg-binary`): PostgreSQL adapter for Python.
+*   **Pydantic** (`pydantic>=2.12.5`): Data validation and settings management using Python type hints.
+*   **Pydantic Settings** (`pydantic-settings>=2.13.1`): Management of environment using Pydantic.
+*   **Cryptography** (`cryptography>=46.0.5`): Library for cryptographic recipes and primitives.
+*   **JWCrypto** (`jwcrypto>=1.5.6`): Implementation of JSON Web Token (JWT) standards.
+*   **PWDLib** (`pwdlib[argon2]>=0.3.0`): Modern password hashing (Argon2).
+*   **Loguru** (`loguru>=0.7.3`): Python logging made (stupidly) simple.
+*   **Orjson** (`orjson>=3.11.7`): Fast, correct Python JSON library.
+*   **Hypercorn** (`hypercorn>=0.18.0`): ASGI server to run the application.
+*   **Py-Automapper** (`py-automapper>=2.2.0`): Object mapping library.
+*   **Stackprinter** (`stackprinter>=0.2.12`): Friendly stack trace formatting.
 
-  * **Starlette (v0.46.2):** underlying ASGI framework for FastAPI, handles routing, middleware, WebSocket, etc.
-  * **Uvicorn (v0.34.3):** high-performance ASGI server included via the "standard" extra, used to run the app.
-  * **Email-validator, python-multipart, itsdangerous, PyYAML, httptools, websockets, etc.:** various libs included via `[standard]` to support forms, uploads, WebSockets, and other FastAPI features.
-  * **FastAPI-CLI (v0.0.7):** command-line tool for managing FastAPI apps (included), e.g., run `python -m fastapi serve` to launch the API. (Optional; running uvicorn directly also works.)
-  * **HTTPX (v0.28.1):** powerful async HTTP client, useful for calling external APIs (e.g., an AI service). Included as a dependency of fastapi\[standard].
-  * **Jinja2 (v3.1.6):** templating engine included via Starlette (can be useful for generating HTML emails, for example).
-* **Pydantic (v2.11.7):** Library for data validation and model creation, base for FastAPI schemas. Version 2 brings optimized performance via pydantic-core. We also use **pydantic-settings (v2.10.0)** for config handling (loading from .env).
-* **UV (Astral)** – Package and environment manager. Creates the `.venv`, resolves dependencies (`uv.lock`), and executes commands in isolation. A modern alternative to pip/pipenv/poetry, offering speed and ease. (See next section for usage details.)
-* **Ruff (v0.12.0)** – Linter for code quality. Included in the development dependencies group (`[tool.ruff]` in pyproject if configured). It checks PEP8, common errors, and even does some auto-fixes. Use it regularly to keep the code clean.
-* *(Other possible dependencies not listed here can be added as needed, e.g., AI libraries like TensorFlow/PyTorch, ORMs like SQLAlchemy, or other utilities.)*
+Dev dependencies:
+*   **Ruff**: An extremely fast Python linter and code formatter.
 
-The **pre-installed dependency structure** can be visualized hierarchically as generated by `uv lock`, but the key point is that the main tools (FastAPI, Pydantic, etc.) are already available. To add new libraries, use `uv add library_name`, which will update both `pyproject` and `uv.lock`.
-
-## Environment Setup and Running the App
+## Environment Setup and Execution
 
 Below are instructions to set up the development environment and run the template app. We cover from installing dependencies with uv to running via Docker.
 
@@ -839,70 +490,133 @@ Once the server is running, you should see Uvicorn logs in the console indicatin
 
 ### Using Docker (Optional)
 
-For those who prefer or need to run in a container (or prepare for production), this project provides Docker support:
+If you prefer to run with Docker (recommended for consistency), ensure you have `docker` and `docker-compose` installed.
 
-* **Building the Docker image:** Make sure Docker is installed. In the project directory, run:
+1.  **Build and Run**:
+    ```sh
+    docker-compose up --build
+    ```
+    This will start the API and any dependencies (DB, etc.).
 
-  ```bash
-  docker build -t fastapi-clean-architecture-ddd-template:latest .
-  ```
+2.  **Access**:
+    The API should be available at `http://localhost:8000` (or the configured port).
 
-  This uses the provided **Dockerfile**. It likely performs steps such as:
+### Using Makefile
 
-  * Using a base image (e.g., `python:3.13-slim`).
-  * Copying `pyproject.toml` and `uv.lock`, installing dependencies (this takes advantage of Docker cache if dependencies haven't changed).
-  * Copying the rest of the code.
-  * Setting the env variable `PYTHONPATH=/app` (if the code is copied to /app).
-  * Running `uvicorn app.app:app` as the entrypoint (sometimes via `CMD`).
+The project includes a `Makefile` to simplify common development tasks. Run these commands from the project root:
 
-  Once done, you’ll have a local image named `fastapi-clean-architecture-ddd-template:latest`.
+*   `make start`: Starts the application and dependencies (DB, etc.) using Docker Compose (rebuilds if necessary).
+*   `make start-silent`: Same as `start` but runs containers in the background (detached mode).
+*   `make view-processes`: Lists running Docker containers.
+*   `make delete`: Stops modules and removes containers, networks, and volumes.
+*   `make dependencies-up`: Starts only the database services (Postgres, Admin).
+*   `make dependencies-up-silent`: Starts database services in the background.
+*   `make dependencies-down`: Stops and removes database services.
 
-* **Running via standalone Docker:** Run a container from the image:
+### Database Migrations
 
-  ```bash
-  docker run -d --env-file .env -p 8000:8000 fastapi-clean-architecture-ddd-template:latest
-  ```
+Database schema changes are managed using **Alembic**.
 
-  This runs in the background (`-d`), loads variables from your local `.env` into the container, and maps port 8000 from the container to 8000 locally. Again, check [http://localhost:8000/docs](http://localhost:8000/docs) to verify it's up.
+1.  **Create a new migration:**
+    When you modify your SQLAlchemy models (e.g., in `infrastructure/models.py`), generate a migration script:
+    ```bash
+    alembic revision --autogenerate -m "Description of change"
+    ```
+    This creates a new file in `migrations/versions/`.
 
-  *Note:* Use `docker logs <container_id>` to view logs, and `docker stop` to stop it when needed.
+2.  **Apply migrations:**
+    To upgrade the database to the latest version:
+    ```bash
+    alembic upgrade head
+    ```
 
-* **Docker Compose (multi-service development):** The `docker-compose.yaml` file makes it easier to spin up the app along with other services (if needed). For example, if the project needs a PostgreSQL database and maybe Redis, we could define in compose. You can edit it to add:
+3.  **Downgrade:**
+    To revert the last migration:
+    ```bash
+    alembic downgrade -1
+    ```
 
-  ```yaml
-  services:
-    api:
-      build: .
-      env_file: .env
-      ports:
-        - "8000:8000"
-    db:
-      image: postgres:15
-      environment:
-        POSTGRES_USER: myuser
-        POSTGRES_PASSWORD: mypass
-        POSTGRES_DB: mydb
-      ports:
-        - "5432:5432"
-  ```
+### Authentication & Cookie Management
 
-  (This is an example; the actual template may differ.)
+The application implements secure authentication using **JWT (JSON Web Tokens)** and **HttpOnly Cookies**.
 
-  Then run:
+*   **Login Flow:**
+    *   Endpoint: `POST /api/v1/auth/login`
+    *   Returns access and refresh tokens set as **HttpOnly cookies**.
+    *   This prevents JavaScript access to tokens, mitigating XSS attacks.
 
-  ```bash
-  docker-compose up --build
-  ```
+*   **Security Features:**
+    *   **Password Hashing:** Uses **Argon2** via `pwdlib` for robust password security.
+    *   **Token Rotation:** Refresh tokens allow obtaining new access tokens without re-login.
+    *   **Encryption:** Sensitive data is encrypted using `cryptography` library.
 
-  This builds the image and starts both `api` and `db`. The app could read environment variables such as `DATABASE_URL=postgresql://myuser:mypass@db:5432/mydb`, pointing to the `db` container.
+### Best Practices & Code Examples
 
-  Compose is very useful for development, as it allows you to mirror the production environment locally. Remember to shut it down with `docker-compose down` when not in use.
+Here are examples of how to implement standard components efficiently following the architecture.
 
-* **Hot-reload in Docker dev:** During development, you might want the container to reflect code changes without rebuilding the image every time. For this, you can map volumes in compose (mounting host code into the container) and run uvicorn in reload mode inside the container. Some extra adjustments are needed in the Dockerfile (like installing `uvicorn[standard]` in the container if not already, though it's included via `fastapi[standard]`) and in compose (mount `./app` to `/app/app`). This isn't configured out of the box, but can be set up if desired.
+#### 1. Repository Implementation (Infrastructure)
+Use `SQLAlchemy` with `async` sessions.
 
-Using Docker in development is optional – you can absolutely use just uv + local venv. However, to standardize environments or if someone is on Windows and prefers a Linux container for alignment, it's available.
+```python
+# app/modules/authentication/infrastructure/repositories.py
 
-In production, using the resulting Docker image simplifies deployment (k8s, ECS, etc.), remembering to configure production environment variables and security/performance settings (e.g., run uvicorn without `--reload`, possibly with more workers, etc.).
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.modules.authentication.domain.entities import User
+from app.modules.authentication.infrastructure.models import UserModel
+
+class UserRepository:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_by_email(self, email: str) -> User | None:
+        result = await self.session.execute(select(UserModel).where(UserModel.email == email))
+        model = result.scalars().first()
+        return model.to_entity() if model else None
+
+    async def save(self, user: User) -> User:
+        model = UserModel.from_entity(user)
+        self.session.add(model)
+        await self.session.commit()
+        await self.session.refresh(model)
+        return model.to_entity()
+```
+
+#### 2. Use Case (Application)
+Orchestrates domain logic and repositories.
+
+```python
+# app/modules/authentication/application/use_cases.py
+
+class AuthenticateUserUseCase:
+    def __init__(self, user_repository: UserRepository, password_service: PasswordService):
+        self.user_repository = user_repository
+        self.password_service = password_service
+
+    async def execute(self, command: LoginCommand) -> AuthTokens:
+        user = await self.user_repository.get_by_email(command.email)
+        if not user or not self.password_service.verify(command.password, user.password_hash):
+            raise InvalidCredentialsException()
+        
+        return self.token_service.generate_tokens(user)
+```
+
+#### 3. Router (Presentation)
+Handles HTTP requests and dependency injection.
+
+```python
+# app/modules/authentication/presentation/routers.py
+
+@router.post("/login", response_model=TokenSchema)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    use_case: AuthenticateUserUseCase = Depends(get_authenticate_use_case)
+):
+    tokens = await use_case.execute(LoginCommand(email=form_data.username, password=form_data.password))
+    response = JSONResponse(content={"message": "Login successful"})
+    set_auth_cookies(response, tokens)
+    return response
+```
 
 ## Final Considerations
 

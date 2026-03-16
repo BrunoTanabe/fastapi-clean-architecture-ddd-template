@@ -10,6 +10,7 @@ from app.core.database import (
 )
 from app.core.logging import init_loguru
 from app.core.migrations import init_alembic_management
+from app.core.key_management import init_security_keys
 from app.core.settings import settings
 from app.modules.shared.application.enums import ApplicationEnvironment
 
@@ -38,6 +39,9 @@ async def startup(app: FastAPI) -> None:
 
         await init_database_client()
         logger.info("Database client initialized successfully.")
+
+        await init_security_keys()
+        logger.info("Security keys initialized successfully.")
 
         await init_alembic_management()
         logger.info("Migration management initialized successfully.")

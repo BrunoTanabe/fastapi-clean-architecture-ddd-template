@@ -197,4 +197,7 @@ cython_debug/
 
 
 *.pyc
-secrets/
+secrets/keys/encryption-private.pem
+secrets/keys/encryption-public.pem
+secrets/keys/signing-private.pem
+secrets/keys/signing-public.pem
