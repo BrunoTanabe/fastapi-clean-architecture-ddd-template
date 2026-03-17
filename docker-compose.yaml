@@ -44,7 +44,7 @@ services:
 
   database-admin:
     image: "dpage/pgadmin4:9.2"
-    container_name: samai-web-chatbots-database-admin
+    container_name: teddy-ia-database-admin
     depends_on:
       database:
         condition: service_healthy
