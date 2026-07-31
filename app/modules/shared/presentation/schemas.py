@@ -1,8 +1,9 @@
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic
 
+from fastapi import Query
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.domain.enums import ResponseMessages, SortOrder
 
 T = TypeVar("T")
 
@@ -19,7 +20,7 @@ class StandardDetailsResponse(BaseModel, Generic[T]):
         },
     )
 
-    data: Optional[T] = Field(
+    data: T | None = Field(
         title="Additional data (optional)",
         description="A JSON object containing additional context or details about the response.",
         examples=[{"field": "value"}, {}, {"key": "value", "another_key": 123}],
@@ -148,5 +149,156 @@ class StandardResponse(BaseModel, Generic[T]):
                     "data": {"key": "value"},
                 },
             },
+        },
+    )
+
+
+# PAGINATION
+class PaginationParams:
+    def __init__(
+        self,
+        sort_order: SortOrder = Query(
+            title="Sort Order",
+            description=f"The order in which to sort the results. Allowed values are: {', '.join([order.value for order in SortOrder])}.",
+            examples=[SortOrder.ASC.value, SortOrder.DESC.value],
+            default=SortOrder.DESC,
+        ),
+        page: int = Query(
+            default=1,
+            ge=1,
+            title="Page Number",
+            description="The page number to retrieve (1-indexed).",
+            examples=[1, 2, 5],
+        ),
+        limit: int = Query(
+            default=20,
+            ge=1,
+            le=100,
+            title="Page Size",
+            description="Number of items to return per page. Maximum is 100.",
+            examples=[10, 20, 50],
+        ),
+    ):
+        self.sort_order = sort_order
+        self.page = page
+        self.limit = limit
+        self.offset = (page - 1) * limit
+
+
+class PaginationMeta(BaseModel):
+    total: int = Field(
+        title="Total Items",
+        description="Total number of items matching the query.",
+        ge=0,
+        examples=[100, 0, 87],
+        json_schema_extra={"example": 100},
+    )
+
+    page: int = Field(
+        title="Current Page",
+        description="The current page number (1-indexed).",
+        ge=1,
+        examples=[1, 2, 5],
+        json_schema_extra={"example": 1},
+    )
+
+    limit: int = Field(
+        title="Page Size",
+        description="Number of items per page.",
+        ge=1,
+        examples=[10, 20, 50],
+        json_schema_extra={"example": 20},
+    )
+
+    total_pages: int = Field(
+        title="Total Pages",
+        description="Total number of pages available for the current query.",
+        ge=0,
+        examples=[1, 5, 10],
+        json_schema_extra={"example": 5},
+    )
+
+    has_next: bool = Field(
+        title="Has Next Page",
+        description="Indicates whether a next page is available.",
+        examples=[True, False],
+        json_schema_extra={"example": True},
+    )
+
+    has_prev: bool = Field(
+        title="Has Previous Page",
+        description="Indicates whether a previous page is available.",
+        examples=[False, True],
+        json_schema_extra={"example": False},
+    )
+
+    model_config = ConfigDict(
+        title="PaginationMeta",
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        validate_return=True,
+        json_schema_extra={
+            "description": "Pagination metadata returned alongside list responses.",
+            "example": {
+                "total": 87,
+                "page": 2,
+                "limit": 20,
+                "total_pages": 5,
+                "has_next": True,
+                "has_prev": True,
+            },
+        },
+    )
+
+
+# CRUD RESPONSES
+class CreateResponse(BaseModel):
+    message: str = ResponseMessages.CREATED.value
+
+    model_config = ConfigDict(
+        title="CreateResponse",
+        str_strip_whitespace=True,
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        validate_return=True,
+        json_schema_extra={
+            "description": "Response model for a successful resource creation.",
+            "example": {"message": ResponseMessages.CREATED.value},
+        },
+    )
+
+
+class UpdateResponse(BaseModel):
+    message: str = ResponseMessages.UPDATED.value
+
+    model_config = ConfigDict(
+        title="UpdateResponse",
+        str_strip_whitespace=True,
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        validate_return=True,
+        json_schema_extra={
+            "description": "Response model for a successful resource update.",
+            "example": {"message": ResponseMessages.UPDATED.value},
+        },
+    )
+
+
+class DeleteResponse(BaseModel):
+    message: str = ResponseMessages.DELETED.value
+
+    model_config = ConfigDict(
+        title="DeleteResponse",
+        str_strip_whitespace=True,
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        validate_return=True,
+        json_schema_extra={
+            "description": "Response model for a successful resource deletion.",
+            "example": {"message": ResponseMessages.DELETED.value},
         },
     )

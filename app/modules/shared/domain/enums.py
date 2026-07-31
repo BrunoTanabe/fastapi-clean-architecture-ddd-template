@@ -2,9 +2,15 @@ from enum import Enum
 
 
 class ApplicationEnvironment(str, Enum):
-    DEV = "dev"
+    DEV = "development"
     HOMOLOG = "homolog"
     PRODUCTION = "production"
+
+
+class CookieSameSite(str, Enum):
+    LAX = "lax"
+    STRICT = "strict"
+    NONE = "none"
 
 
 class ResponseMessages(Enum):
@@ -47,3 +53,8 @@ class Role(str, Enum):
     ADMIN = "admin"
     MANAGER = "manager"
     USER = "user"
+
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
