@@ -98,14 +98,18 @@ class EmailSenderService(IEmailSenderService):
 
             ...
 
-            logger.debug(f"Email for notification '{notification.id}' sent successfully.")
+            logger.debug(
+                f"Email for notification '{notification.id}' sent successfully."
+            )
         except StandardException:
             raise
         except TimeoutError as e:
             logger.opt(exception=e).error("The email service did not respond in time.")
             raise EmailSenderServiceTimeoutException()
         except Exception as e:
-            logger.opt(exception=e).error("An error occurred in the send email service.")
+            logger.opt(exception=e).error(
+                "An error occurred in the send email service."
+            )
             raise EmailSenderServiceUnavailableException()
 ```
 

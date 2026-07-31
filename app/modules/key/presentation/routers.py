@@ -6,46 +6,46 @@ from loguru import logger
 
 from app.core.security import authenticate_admin
 from app.modules.authentication.domain.entities import Authentication
-from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
-)
 from app.modules.key.application.exceptions import KeyException
 from app.modules.key.application.mappers import (
     create_entity_mapper,
-    entity_create_mapper,
+    delete_entity_mapper,
     entities_get_all_mapper,
-    entity_get_mapper,
-    entity_update_mapper,
+    entity_create_mapper,
     entity_delete_mapper,
+    entity_get_mapper,
+    entity_rotate_mapper,
+    entity_update_mapper,
     get_all_entity_mapper,
     get_entity_mapper,
-    update_entity_mapper,
-    delete_entity_mapper,
     rotate_entity_mapper,
-    entity_rotate_mapper,
+    update_entity_mapper,
 )
 from app.modules.key.application.use_cases import KeyUseCases
 from app.modules.key.presentation.dependencies import get_key_use_cases
 from app.modules.key.presentation.docs import (
-    router_docs,
     create_docs,
+    delete_docs,
     get_all_docs,
     get_docs,
-    update_docs,
-    delete_docs,
     rotate_docs,
+    router_docs,
+    update_docs,
 )
 from app.modules.key.presentation.schemas import (
-    CreateRequest,
     CreateKeyResponse,
+    CreateRequest,
     GetAllResponse,
     GetResponse,
     KeyPaginationParams,
     RotateKeyResponse,
     UpdateRequest,
 )
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
+)
+from app.modules.shared.domain.entities import DomainError
 from app.modules.shared.presentation.schemas import DeleteResponse, UpdateResponse
 
 router = APIRouter(**router_docs)

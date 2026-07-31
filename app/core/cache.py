@@ -1,4 +1,4 @@
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from loguru import logger
 from redis.asyncio import ConnectionPool, Redis
@@ -6,7 +6,6 @@ from redis.exceptions import RedisError
 
 from app.core.settings import settings
 from app.modules.shared.application.exceptions import StandardException
-
 
 # connection pool
 redis_pool = ConnectionPool.from_url(

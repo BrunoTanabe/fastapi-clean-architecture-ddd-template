@@ -1,11 +1,17 @@
 import re
-from datetime import datetime, date
+from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.modules.shared.application.utils import BRASILIA_TZ
 from app.modules.shared.domain.enums import Role
-from app.modules.shared.presentation.schemas import CreateResponse as CreateResponse
+from app.modules.shared.presentation.schemas import (
+    CreateResponse as CreateResponse,  # noqa: PLC0414
+)
 from app.modules.user.domain.enums import Gender
+
+# CreateResponse is re-exported deliberately: this module's routers, mappers and docs
+# import it from here rather than reaching into shared. The `as` form marks that intent.
 
 
 # REQUEST
@@ -116,7 +122,7 @@ class CreateRequest(BaseModel):
     @field_validator("birthdate")
     @classmethod
     def validate_birthdate(cls, request: date) -> date:
-        today = date.today()
+        today = datetime.now(BRASILIA_TZ).date()
         min_year = date(1900, 1, 1)
         if request > today:
             raise ValueError("Birthdate cannot be a future date.")

@@ -6,17 +6,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import get_cache_session
 from app.core.database import get_async_session
-from app.modules.knowledge.infrastructure.caches import RedisKnowledgeCache
-from app.modules.shared.application.use_cases import SharedUseCases
-from app.modules.shared.presentation.dependencies import get_shared_use_cases
 from app.modules.knowledge.application.interfaces import (
-    IKnowledgeRepository,
     IKnowledgeCache,
+    IKnowledgeRepository,
 )
 from app.modules.knowledge.application.use_cases import KnowledgeUseCases
+from app.modules.knowledge.infrastructure.caches import RedisKnowledgeCache
 from app.modules.knowledge.infrastructure.repositories import (
     PostgresKnowledgeRepository,
 )
+from app.modules.shared.application.use_cases import SharedUseCases
+from app.modules.shared.presentation.dependencies import get_shared_use_cases
 
 
 def get_knowledge_cache(

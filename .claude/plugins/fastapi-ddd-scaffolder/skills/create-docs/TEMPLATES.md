@@ -238,7 +238,7 @@ get_docs = {
     "response_model": GetResponse,
     "include_in_schema": True,
     "responses": {
-        200: { ... },
+        200: {...},
         404: {
             "model": StandardResponse,
             "description": "Not Found",
@@ -284,11 +284,11 @@ update_docs = {
     "response_model": UpdateResponse,
     "include_in_schema": True,
     "responses": {
-        200: { ... },
+        200: {...},
         400: {
             # {Entity}NotModifiedException — no effective change was submitted
         },
-        404: { ... },
+        404: {...},
     },
 }
 ```
@@ -309,8 +309,8 @@ delete_docs = {
     "response_model": DeleteResponse,
     "include_in_schema": True,
     "responses": {
-        200: { ... },
-        404: { ... },
+        200: {...},
+        404: {...},
     },
 }
 ```

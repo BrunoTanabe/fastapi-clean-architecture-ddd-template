@@ -37,7 +37,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.warning(
                     f"Authentication '{authentication.id}' has no access token hashed_jti. Skipping cache insert."
                 )
-                return None
+                return
 
             suffix = f"access_token:{hashed_jti}"
 
@@ -50,7 +50,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.info(
                     f"Authentication '{authentication.id}' was invalidated while being read. Skipping cache insert by access token."
                 )
-                return None
+                return
 
             logger.debug(
                 f"Caching authentication '{authentication.id}' by access token."
@@ -69,7 +69,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
             logger.opt(exception=e).error(
                 "An error occurred in the insert authentication by access token cache. The request continues without caching."
             )
-            return None
+            return
 
     async def insert_by_refresh_token(
         self, authentication: Authentication, ttl: int | None = None
@@ -85,7 +85,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.warning(
                     f"Authentication '{authentication.id}' has no refresh token hashed_jti. Skipping cache insert."
                 )
-                return None
+                return
 
             suffix = f"refresh_token:{hashed_jti}"
 
@@ -93,7 +93,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.info(
                     f"Authentication '{authentication.id}' was invalidated while being read. Skipping cache insert by refresh token."
                 )
-                return None
+                return
 
             logger.debug(
                 f"Caching authentication '{authentication.id}' by refresh token."
@@ -112,7 +112,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
             logger.opt(exception=e).error(
                 "An error occurred in the insert authentication by refresh token cache. The request continues without caching."
             )
-            return None
+            return
 
     # READ
     async def get_by_access_token(
@@ -184,7 +184,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.warning(
                     f"Authentication '{authentication.id}' has no access token hashed_jti. Skipping cache delete."
                 )
-                return None
+                return
 
             logger.debug(
                 f"Invalidating authentication '{authentication.id}' by access token."
@@ -209,7 +209,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
             logger.opt(exception=e).error(
                 "An error occurred in the delete authentication by access token cache. The entry remains until its ttl expires."
             )
-            return None
+            return
 
     async def delete_by_refresh_token(self, authentication: Authentication) -> None:
         try:
@@ -223,7 +223,7 @@ class RedisAuthenticationCache(IAuthenticationCache):
                 logger.warning(
                     f"Authentication '{authentication.id}' has no refresh token hashed_jti. Skipping cache delete."
                 )
-                return None
+                return
 
             logger.debug(
                 f"Invalidating authentication '{authentication.id}' by refresh token."
@@ -245,4 +245,4 @@ class RedisAuthenticationCache(IAuthenticationCache):
             logger.opt(exception=e).error(
                 "An error occurred in the delete authentication by refresh token cache. The entry remains until its ttl expires."
             )
-            return None
+            return

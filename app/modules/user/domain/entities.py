@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 
-from app.modules.shared.domain.enums import Role
+from app.modules.shared.application.utils import BRASILIA_TZ
 from app.modules.shared.domain.entities import BaseEntity, DomainError, DomainErrors
+from app.modules.shared.domain.enums import Role
 from app.modules.shared.domain.value_objects import Email, Name, Phone
 from app.modules.user.domain.enums import Gender
 
@@ -42,7 +43,7 @@ class User(BaseEntity):
         self._calculate_censored_values()
 
         if self.birthdate is not None:
-            today = date.today()
+            today = datetime.now(BRASILIA_TZ).date()
             age = (
                 today.year
                 - self.birthdate.year

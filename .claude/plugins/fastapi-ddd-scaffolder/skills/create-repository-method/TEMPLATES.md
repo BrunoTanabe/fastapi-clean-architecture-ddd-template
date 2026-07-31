@@ -300,8 +300,8 @@ Deletion is `is_active = False` through the same `update` path. Because the enti
 `update` instead of a dedicated method:
 
 ```python
-        existing.deactivate(updated_by=entity.updated_by)   # in the use case
-        return await self.repository.update(existing)
+existing.deactivate(updated_by=entity.updated_by)  # in the use case
+return await self.repository.update(existing)
 ```
 
 Add an explicit `delete` method only when the row must be physically removed.

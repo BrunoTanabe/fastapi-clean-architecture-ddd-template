@@ -3,7 +3,7 @@ from uuid import UUID
 
 from automapper import mapper
 
-from app.modules.shared.domain.value_objects import UNSET
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.knowledge.domain.entities import (
     Knowledge,
     KnowledgeList,
@@ -18,13 +18,13 @@ from app.modules.knowledge.presentation.schemas import (
     UpdateRequest,
 )
 from app.modules.shared.domain.enums import SortOrder
+from app.modules.shared.domain.value_objects import UNSET
 from app.modules.shared.presentation.schemas import (
     CreateResponse,
     DeleteResponse,
     PaginationMeta,
     UpdateResponse,
 )
-from app.modules.authentication.domain.entities import Authentication
 from app.modules.user.domain.entities import User
 
 

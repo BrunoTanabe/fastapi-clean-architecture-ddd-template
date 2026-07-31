@@ -3,7 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Query
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.notification.domain.enums import (
     NotificationSortField,
@@ -122,6 +122,10 @@ class NotificationResponse(BaseModel):
 
 
 # QUERY PARAMS
+# Built from the enum so the documented values can never drift from the code.
+_SORT_FIELD_VALUES = ", ".join([field.value for field in NotificationSortField])
+
+
 class NotificationPaginationParams:
     def __init__(
         self,
@@ -129,7 +133,7 @@ class NotificationPaginationParams:
         sort_by: NotificationSortField = Query(
             default=NotificationSortField.CREATED_AT,
             title="Sort Field",
-            description=f"Field to sort notifications by. Allowed values: {', '.join([f.value for f in NotificationSortField])}.",
+            description=f"Field to sort notifications by. Allowed values: {_SORT_FIELD_VALUES}.",
         ),
     ):
         self.sort_order = pagination.sort_order

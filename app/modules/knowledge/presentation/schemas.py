@@ -3,7 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Query
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.modules.knowledge.domain.enums import KnowledgeSortField
 from app.modules.shared.domain.enums import ResponseMessages
@@ -111,7 +111,7 @@ class UpdateRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_at_least_one_field(self) -> "UpdateRequest":
+    def validate_at_least_one_field(self) -> UpdateRequest:
         has_name = "name" in self.model_fields_set and self.name is not None
         has_description = "description" in self.model_fields_set
         if not has_name and not has_description:

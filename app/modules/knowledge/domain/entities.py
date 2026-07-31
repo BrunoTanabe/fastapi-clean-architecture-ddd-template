@@ -45,7 +45,7 @@ class Knowledge(BaseEntity):
         if errors:
             raise DomainErrors(errors)
 
-    def deactivate(self, updated_by: User) -> None:  # noqa
+    def deactivate(self, updated_by: User) -> None:
         super().deactivate()
         self.updated_by = updated_by
 

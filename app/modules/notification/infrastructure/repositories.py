@@ -5,8 +5,6 @@ from sqlalchemy import cast, func, insert, literal, null, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.shared.application.exceptions import StandardException
-from app.modules.shared.domain.enums import Role, SortOrder
 from app.modules.notification.application.exceptions import NotificationException
 from app.modules.notification.application.interfaces import INotificationRepository
 from app.modules.notification.application.mappers import (
@@ -20,6 +18,8 @@ from app.modules.notification.domain.entities import (
     NotificationPagination,
 )
 from app.modules.notification.infrastructure.models import NotificationModel
+from app.modules.shared.application.exceptions import StandardException
+from app.modules.shared.domain.enums import Role, SortOrder
 from app.modules.user.infrastructure.models import UserModel
 
 

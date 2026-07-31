@@ -1,12 +1,12 @@
 from automapper import mapper
 
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.health.domain.entities import Health
 from app.modules.health.infrastructure.models import AlembicModel
 from app.modules.health.presentation.schemas import (
-    HealthResponse,
     AlembicVersionResponse,
+    HealthResponse,
 )
-from app.modules.authentication.domain.entities import Authentication
 
 
 # ENTITY / DTOS

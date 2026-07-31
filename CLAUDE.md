@@ -149,10 +149,14 @@ from app.core.security import (
 from app.modules.authentication.domain.entities import Authentication
 
 
-authentication: Annotated[Authentication, Depends(authenticate_user)]     # any authenticated user
-authentication: Annotated[Authentication, Depends(authenticate_manager)]  # manager role or above
-authentication: Annotated[Authentication, Depends(authenticate_admin)]    # admin only
-_: Annotated[None, Depends(no_authentication)]                            # public endpoint
+authentication: Annotated[
+    Authentication, Depends(authenticate_user)
+]  # any authenticated user
+authentication: Annotated[
+    Authentication, Depends(authenticate_manager)
+]  # manager role or above
+authentication: Annotated[Authentication, Depends(authenticate_admin)]  # admin only
+_: Annotated[None, Depends(no_authentication)]  # public endpoint
 ```
 
 Read the actor as `authentication.user` (a `User` entity). Role tiers are enforced twice: by the

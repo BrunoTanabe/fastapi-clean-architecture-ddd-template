@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from app.modules.knowledge.presentation.schemas import GetAllResponse
 from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import (
     CreateResponse,
@@ -7,7 +8,6 @@ from app.modules.shared.presentation.schemas import (
     StandardResponse,
     UpdateResponse,
 )
-from app.modules.knowledge.presentation.schemas import GetAllResponse
 
 # MODULE DOCS
 router_docs = {

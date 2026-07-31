@@ -4,8 +4,8 @@ from fastapi.responses import RedirectResponse
 
 from app.modules.health.domain.enums import HealthType
 from app.modules.health.presentation.schemas import (
-    HealthResponse,
     AlembicVersionResponse,
+    HealthResponse,
 )
 from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse

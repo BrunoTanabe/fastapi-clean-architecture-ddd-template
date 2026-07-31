@@ -1,16 +1,16 @@
 from loguru import logger
 
-from app.modules.health.application.interfaces import IHealthRepository
-from app.modules.health.domain.entities import Health
 from app.modules.health.application.exceptions import (
     HealthException,
     MigrationNotInitiatedException,
 )
-from app.modules.shared.domain.entities import DomainError
+from app.modules.health.application.interfaces import IHealthRepository
+from app.modules.health.domain.entities import Health
 from app.modules.shared.application.exceptions import (
-    StandardException,
     DomainException,
+    StandardException,
 )
+from app.modules.shared.domain.entities import DomainError
 
 
 class HealthUseCases:

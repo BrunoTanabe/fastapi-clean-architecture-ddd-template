@@ -66,7 +66,9 @@ class CreateRequest(BaseModel):
 
 ```python
 # ENTITY / DTOS
-def create_entity_mapper(payload: CreateRequest, authentication: Authentication) -> {Entity}:
+def create_entity_mapper(
+    payload: CreateRequest, authentication: Authentication
+) -> {Entity}:
     return mapper.to({Entity}).map(
         payload,
         fields_mapping={
@@ -189,8 +191,8 @@ create_docs = {
     "response_model": CreateResponse,
     "include_in_schema": True,
     "responses": {
-        201: { ... },
-        409: { ... },
+        201: {...},
+        409: {...},
     },
 }
 ```
@@ -226,9 +228,9 @@ async def create(
 In the tier matching the handler's dependency, in `app/core/settings.py`:
 
 ```python
-    # {MODULE}
-    _path_rule("/api/v1/{module}/", "POST"),
-    _path_rule("/api/v1/{module}", "POST"),
+# {MODULE}
+(_path_rule("/api/v1/{module}/", "POST"),)
+(_path_rule("/api/v1/{module}", "POST"),)
 ```
 
 Both forms, every time. This is the single most common omission.

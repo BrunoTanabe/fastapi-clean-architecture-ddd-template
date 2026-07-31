@@ -4,8 +4,8 @@ from alembic import context
 
 from app.core.database import pg_engine
 from app.modules.authentication.infrastructure.models import (
-    AuthenticationModel,
     AccessTokenModel,
+    AuthenticationModel,
     RefreshTokenModel,
 )
 from app.modules.health.infrastructure.models import AlembicModel
@@ -14,7 +14,6 @@ from app.modules.knowledge.infrastructure.models import KnowledgeModel
 from app.modules.notification.infrastructure.models import NotificationModel
 from app.modules.shared.infrastructure.models import Base
 from app.modules.user.infrastructure.models import UserModel
-
 
 _ = [
     AccessTokenModel,

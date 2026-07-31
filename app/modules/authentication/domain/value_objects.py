@@ -135,7 +135,7 @@ class Claims(BaseClaims):
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Claims":
+    def from_dict(cls, data: dict) -> Claims:
         return cls(
             **cls._base_kwargs_from_dict(data),
             grant_id=data["grant_id"],
@@ -207,7 +207,7 @@ class RefreshClaims(BaseClaims):
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "RefreshClaims":
+    def from_dict(cls, data: dict) -> RefreshClaims:
         return cls(
             **cls._base_kwargs_from_dict(data),
             client_id=data["client_id"],

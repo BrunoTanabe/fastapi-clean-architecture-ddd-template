@@ -5,16 +5,16 @@ from sqlalchemy.orm import joinedload
 
 from app.modules.authentication.application.exceptions import AuthenticationException
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
-from app.modules.authentication.domain.entities import Authentication
 from app.modules.authentication.application.mappers import (
-    model_entity_mapper,
     entity_model_mapper,
+    model_entity_mapper,
     sync_entity_from_model,
 )
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.authentication.infrastructure.models import (
+    AccessTokenModel,
     AuthenticationModel,
     RefreshTokenModel,
-    AccessTokenModel,
 )
 from app.modules.shared.application.exceptions import StandardException
 

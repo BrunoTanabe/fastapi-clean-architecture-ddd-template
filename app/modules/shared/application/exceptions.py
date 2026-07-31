@@ -3,8 +3,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.domain.entities import DomainError, DomainErrors
+from app.modules.shared.domain.enums import ResponseMessages
 
 
 # GENERIC EXCEPTIONS

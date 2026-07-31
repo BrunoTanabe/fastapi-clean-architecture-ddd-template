@@ -2,21 +2,21 @@ from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.shared.application.exceptions import StandardException
+from app.modules.knowledge.application.exceptions import KnowledgeException
 from app.modules.knowledge.application.interfaces import IKnowledgeRepository
-from app.modules.knowledge.domain.entities import (
-    Knowledge,
-    KnowledgeList,
-    KnowledgePagination,
-)
-from app.modules.shared.domain.enums import SortOrder
 from app.modules.knowledge.application.mappers import (
     entity_model_mapper,
     model_entity_mapper,
     models_knowledge_list_mapper,
 )
+from app.modules.knowledge.domain.entities import (
+    Knowledge,
+    KnowledgeList,
+    KnowledgePagination,
+)
 from app.modules.knowledge.infrastructure.models import KnowledgeModel
-from app.modules.knowledge.application.exceptions import KnowledgeException
+from app.modules.shared.application.exceptions import StandardException
+from app.modules.shared.domain.enums import SortOrder
 
 
 class PostgresKnowledgeRepository(IKnowledgeRepository):
@@ -130,7 +130,7 @@ class PostgresKnowledgeRepository(IKnowledgeRepository):
             result = await self.session.execute(statement)
             rows = result.all()
 
-            knowledge_list = models_knowledge_list_mapper(rows)  # noqa
+            knowledge_list = models_knowledge_list_mapper(rows)
 
             logger.info(
                 f"Retrieved {len(knowledge_list.items)} of {knowledge_list.total} active knowledge base(s) from database."

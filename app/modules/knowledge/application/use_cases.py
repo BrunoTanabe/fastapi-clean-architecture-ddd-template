@@ -1,30 +1,30 @@
 from loguru import logger
 
-from app.modules.shared.application.use_cases import SharedUseCases
-from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
+from app.modules.knowledge.application.exceptions import (
+    KnowledgeException,
+    KnowledgeNameAlreadyExistsException,
+    KnowledgeNotFoundException,
+    KnowledgeNotModifiedException,
 )
-from app.modules.shared.domain.enums import Role
-from app.modules.shared.domain.value_objects import UNSET
 from app.modules.knowledge.application.interfaces import (
-    IKnowledgeRepository,
     IKnowledgeCache,
+    IKnowledgeRepository,
 )
 from app.modules.knowledge.domain.entities import (
     Knowledge,
     KnowledgeList,
     KnowledgePagination,
 )
-from app.modules.knowledge.application.exceptions import (
-    KnowledgeNotFoundException,
-    KnowledgeNameAlreadyExistsException,
-    KnowledgeNotModifiedException,
-    KnowledgeException,
-)
 from app.modules.notification.domain.entities import Notification
 from app.modules.notification.domain.enums import NotificationType
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
+)
+from app.modules.shared.application.use_cases import SharedUseCases
+from app.modules.shared.domain.entities import DomainError
+from app.modules.shared.domain.enums import Role
+from app.modules.shared.domain.value_objects import UNSET
 
 
 class KnowledgeUseCases:
@@ -120,12 +120,13 @@ class KnowledgeUseCases:
                 )
                 raise KnowledgeNotFoundException(id=str(knowledge.id))
 
-            if knowledge.name is not UNSET:
-                if await self.repository.exists_by_name(knowledge):
-                    logger.info(
-                        f"Knowledge with name '{knowledge.name}' already exists. Raising exception."
-                    )
-                    raise KnowledgeNameAlreadyExistsException(name=knowledge.name)
+            if knowledge.name is not UNSET and await self.repository.exists_by_name(
+                knowledge
+            ):
+                logger.info(
+                    f"Knowledge with name '{knowledge.name}' already exists. Raising exception."
+                )
+                raise KnowledgeNameAlreadyExistsException(name=knowledge.name)
 
             merged = Knowledge(
                 id=knowledge.id,

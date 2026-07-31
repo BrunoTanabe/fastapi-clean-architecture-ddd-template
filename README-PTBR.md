@@ -689,8 +689,8 @@ Os tiers são cumulativos, então cada rota é declarada **uma vez**, no tier ma
 alcançá-la. As duas formas de barra precisam ser registradas:
 
 ```python
-_path_rule("/api/v1/key/", "POST"),
-_path_rule("/api/v1/key", "POST"),
+(_path_rule("/api/v1/key/", "POST"),)
+(_path_rule("/api/v1/key", "POST"),)
 ```
 
 > [!WARNING]

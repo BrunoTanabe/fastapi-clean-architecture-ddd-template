@@ -5,38 +5,38 @@ from fastapi import APIRouter, Depends
 from loguru import logger
 
 from app.core.security import authenticate_manager
-from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
-)
-from app.modules.knowledge.application.use_cases import KnowledgeUseCases
 from app.modules.authentication.domain.entities import Authentication
+from app.modules.knowledge.application.exceptions import KnowledgeException
 from app.modules.knowledge.application.mappers import (
     create_entity_mapper,
-    entity_create_mapper,
     delete_entity_mapper,
-    entity_delete_mapper,
     entities_get_all_mapper,
+    entity_create_mapper,
+    entity_delete_mapper,
+    entity_update_mapper,
     get_all_entity_mapper,
     update_entity_mapper,
-    entity_update_mapper,
 )
+from app.modules.knowledge.application.use_cases import KnowledgeUseCases
 from app.modules.knowledge.presentation.dependencies import get_knowledge_use_cases
 from app.modules.knowledge.presentation.docs import (
-    router_docs,
     create_docs,
     delete_docs,
     get_all_docs,
+    router_docs,
     update_docs,
 )
-from app.modules.knowledge.application.exceptions import KnowledgeException
 from app.modules.knowledge.presentation.schemas import (
     CreateRequest,
     GetAllResponse,
     KnowledgePaginationParams,
     UpdateRequest,
 )
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
+)
+from app.modules.shared.domain.entities import DomainError
 from app.modules.shared.presentation.schemas import (
     CreateResponse,
     DeleteResponse,

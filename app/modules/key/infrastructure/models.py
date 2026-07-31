@@ -3,13 +3,15 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import (
+    UUID as SQUID,
+)
+from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
     String,
     Text,
     UniqueConstraint,
-    UUID as SQUID,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

@@ -45,8 +45,8 @@ Templates for every handler shape are in [TEMPLATES.md](TEMPLATES.md).
 Add the rules to the tier matching the handler's dependency, in `app/core/settings.py`:
 
 ```python
-_path_rule("/api/v1/{module}/", "POST"),
-_path_rule("/api/v1/{module}", "POST"),
+(_path_rule("/api/v1/{module}/", "POST"),)
+(_path_rule("/api/v1/{module}", "POST"),)
 ```
 
 | Dependency | Tier |

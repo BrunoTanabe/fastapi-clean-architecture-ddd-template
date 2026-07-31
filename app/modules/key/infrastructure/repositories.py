@@ -3,8 +3,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.modules.shared.application.exceptions import StandardException
-from app.modules.shared.domain.enums import SortOrder
 from app.modules.key.application.exceptions import KeyException
 from app.modules.key.application.interfaces import IKeyRepository
 from app.modules.key.application.mappers import (
@@ -15,6 +13,8 @@ from app.modules.key.application.mappers import (
 )
 from app.modules.key.domain.entities import Key, KeyList, KeyPagination
 from app.modules.key.infrastructure.models import KeyModel
+from app.modules.shared.application.exceptions import StandardException
+from app.modules.shared.domain.enums import SortOrder
 
 
 class PostgresKeyRepository(IKeyRepository):

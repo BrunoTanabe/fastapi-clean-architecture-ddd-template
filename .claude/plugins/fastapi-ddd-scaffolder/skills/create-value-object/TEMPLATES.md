@@ -180,7 +180,7 @@ class Amount:
     def _normalize(self) -> None:
         try:
             self.amount = Decimal(str(self.amount)).quantize(Decimal("0.01"))
-        except (InvalidOperation, ValueError, TypeError):
+        except InvalidOperation, ValueError, TypeError:
             raise DomainError(f"Invalid amount: '{self.amount}'.")
 
     def _validate(self) -> None:

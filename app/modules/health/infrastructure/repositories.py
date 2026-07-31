@@ -2,11 +2,11 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.health.application.interfaces import IHealthRepository
-from app.modules.health.domain.entities import Health
-from app.modules.health.application.mappers import model_entity_mapper
-from app.modules.health.infrastructure.models import AlembicModel
 from app.modules.health.application.exceptions import HealthException
+from app.modules.health.application.interfaces import IHealthRepository
+from app.modules.health.application.mappers import model_entity_mapper
+from app.modules.health.domain.entities import Health
+from app.modules.health.infrastructure.models import AlembicModel
 from app.modules.shared.application.exceptions import StandardException
 
 

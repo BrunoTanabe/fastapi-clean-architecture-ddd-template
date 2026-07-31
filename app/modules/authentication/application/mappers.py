@@ -6,24 +6,24 @@ from fastapi import Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.modules.authentication.domain.entities import (
-    Authentication,
     AccessToken,
+    Authentication,
     RefreshToken,
 )
 from app.modules.authentication.domain.value_objects import Claims, RefreshClaims
 from app.modules.authentication.infrastructure.models import (
-    AuthenticationModel,
     AccessTokenModel,
+    AuthenticationModel,
     RefreshTokenModel,
 )
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
-    RefreshResponse,
     LogoutResponse,
+    RefreshResponse,
 )
+from app.modules.shared.application.utils import BRASILIA_TZ, resolve_client_ip
 from app.modules.shared.domain.enums import Role
 from app.modules.shared.domain.value_objects import Name
-from app.modules.shared.application.utils import BRASILIA_TZ, resolve_client_ip
 from app.modules.user.application.mappers import (
     model_entity_mapper as user_model_entity_mapper,
 )
@@ -178,8 +178,8 @@ def _authentication_model_to_entity(model: AuthenticationModel) -> Authenticatio
 
 def _access_token_entity_to_model(entity: AccessToken) -> AccessTokenModel:
     return AccessTokenModel(
-        id=entity.id,  # noqa
-        hashed_jti=entity.hashed_jti,  # noqa
+        id=entity.id,
+        hashed_jti=entity.hashed_jti,
         previous_hashed_jti=entity.previous_hashed_jti,
         created_at=entity.created_at
         if entity.created_at
@@ -198,7 +198,7 @@ def _refresh_token_entity_to_model(entity: RefreshToken) -> RefreshTokenModel:
         else None
     )
     return RefreshTokenModel(
-        id=entity.id,  # noqa
+        id=entity.id,
         hashed_jti=entity.hashed_jti if entity.hashed_jti else "",
         previous_hashed_jti=entity.previous_hashed_jti,
         created_at=entity.created_at
@@ -223,7 +223,7 @@ def _authentication_entity_to_model(entity: Authentication) -> AuthenticationMod
         else None
     )
     model = AuthenticationModel(
-        id=entity.id,  # noqa
+        id=entity.id,
         user_id=entity.user.id,
         ip_address=entity.ip_address if entity.ip_address else "",
         user_agent=entity.user_agent if entity.user_agent else "",

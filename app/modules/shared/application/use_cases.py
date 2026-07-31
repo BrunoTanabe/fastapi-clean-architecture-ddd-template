@@ -1,20 +1,20 @@
 from loguru import logger
 
-from app.modules.shared.domain.entities import DomainError
+from app.modules.notification.application.exceptions import NotificationException
+from app.modules.notification.application.interfaces import INotificationRepository
+from app.modules.notification.domain.entities import Notification
 from app.modules.shared.application.exceptions import (
-    StandardException,
     DomainException,
+    StandardException,
+)
+from app.modules.shared.domain.entities import DomainError
+from app.modules.user.application.exceptions import (
+    UserEmailNotFoundException,
+    UserException,
+    UserIdNotFoundException,
 )
 from app.modules.user.application.interfaces import IUserRepository
 from app.modules.user.domain.entities import User
-from app.modules.user.application.exceptions import (
-    UserException,
-    UserEmailNotFoundException,
-    UserIdNotFoundException,
-)
-from app.modules.notification.application.interfaces import INotificationRepository
-from app.modules.notification.application.exceptions import NotificationException
-from app.modules.notification.domain.entities import Notification
 from app.modules.websocket.application.interfaces import IConnectionManagerService
 from app.modules.websocket.domain.entities import WebSocketMessage
 
@@ -114,7 +114,7 @@ class SharedUseCases:
             ws_message = WebSocketMessage(body=notification)
             await self.connection_manager.broadcast_to(
                 ws_message,
-                minimum_role=notification.originated_from_broadcast,  # noqa
+                minimum_role=notification.originated_from_broadcast,
             )
         except Exception as e:
             logger.opt(exception=e).warning(

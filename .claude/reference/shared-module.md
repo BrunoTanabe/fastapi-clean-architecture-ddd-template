@@ -40,11 +40,13 @@ Everything `app/modules/shared/` exposes, and the rules for using it.
 ```python
 class DomainError(Exception):
     def __init__(self, message: str) -> None: ...
+
     # .message
 
 
 class DomainErrors(DomainError):
     def __init__(self, errors: list[str]) -> None: ...
+
     # .errors — the full list; .message is errors[0]
 
 
@@ -98,7 +100,9 @@ class KeyList(PaginatedList):
 
 @dataclass(kw_only=True, slots=True)
 class KeyPagination(Pagination):
-    sort_by: KeySortField = field(default=KeySortField.CREATED_AT, repr=False, compare=False)
+    sort_by: KeySortField = field(
+        default=KeySortField.CREATED_AT, repr=False, compare=False
+    )
 ```
 
 Never redeclare `total`, `page`, `per_page`, `sort_order`, or `offset`.
@@ -168,8 +172,11 @@ reference implementation of that pattern.
 ```python
 class _Unset:
     _instance = None
+
     def __new__(cls): ...
-    def __repr__(self) -> str: return "UNSET"
+    def __repr__(self) -> str:
+        return "UNSET"
+
 
 UNSET = _Unset()
 ```
@@ -182,11 +189,15 @@ Always compare with `is` / `is not`, never `==`.
    `description: str | None = field(default=UNSET, ...)`
 2. The update mapper sets each field from `model_fields_set`:
    ```python
-   description=payload.description if "description" in payload.model_fields_set else UNSET
+   description = (
+       payload.description if "description" in payload.model_fields_set else UNSET
+   )
    ```
 3. The use case merges against the stored record:
    ```python
-   description=entity.description if entity.description is not UNSET else existing.description
+   description = (
+       entity.description if entity.description is not UNSET else existing.description
+   )
    ```
 
 Guard validation with `is not UNSET` so an omitted field is never validated, and normalize `UNSET`
@@ -210,7 +221,10 @@ exception and every `docs.py` example pulls its message from it; never hardcode 
 
 ```python
 class StandardException(HTTPException):
-    def __init__(self, status_code: int, message: str, data: dict | None = None) -> None: ...
+    def __init__(
+        self, status_code: int, message: str, data: dict | None = None
+    ) -> None: ...
+
     # .message, .data
 ```
 
@@ -286,9 +300,12 @@ module needs another module's repository or cache; keep module-owned factories i
 ## Utils
 
 ```python
-BRASILIA_TZ = ZoneInfo("America/Sao_Paulo")   # the project timezone; BaseModel timestamps use it
+BRASILIA_TZ = ZoneInfo(
+    "America/Sao_Paulo"
+)  # the project timezone; BaseModel timestamps use it
 
-def current_timestamp() -> str: ...           # UTC ISO 8601 with a trailing "Z"
+
+def current_timestamp() -> str: ...  # UTC ISO 8601 with a trailing "Z"
 def resolve_client_ip(x_forwarded_for, x_real_ip, peer_host) -> str: ...
 ```
 

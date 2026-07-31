@@ -1,14 +1,10 @@
-from typing import TypeVar, Generic
-
 from fastapi import Query
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.shared.domain.enums import ResponseMessages, SortOrder
 
-T = TypeVar("T")
 
-
-class StandardDetailsResponse(BaseModel, Generic[T]):
+class StandardDetailsResponse[T](BaseModel):
     message: str = Field(
         title="Response message",
         description="A brief, human-readable summary of the response.",
@@ -57,7 +53,7 @@ class StandardDetailsResponse(BaseModel, Generic[T]):
     )
 
 
-class StandardResponse(BaseModel, Generic[T]):
+class StandardResponse[T](BaseModel):
     code: int = Field(
         title="HTTP status code (required)",
         description="Numeric HTTP status code indicating the response type.",
@@ -154,12 +150,16 @@ class StandardResponse(BaseModel, Generic[T]):
 
 
 # PAGINATION
+# Built from the enum so the documented values can never drift from the code.
+_SORT_ORDER_VALUES = ", ".join([order.value for order in SortOrder])
+
+
 class PaginationParams:
     def __init__(
         self,
         sort_order: SortOrder = Query(
             title="Sort Order",
-            description=f"The order in which to sort the results. Allowed values are: {', '.join([order.value for order in SortOrder])}.",
+            description=f"The order in which to sort the results. Allowed values are: {_SORT_ORDER_VALUES}.",
             examples=[SortOrder.ASC.value, SortOrder.DESC.value],
             default=SortOrder.DESC,
         ),

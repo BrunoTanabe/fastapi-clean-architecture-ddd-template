@@ -294,8 +294,11 @@ a mis-ordered `except` block.
 ```python
 async def test_update_keeps_omitted_fields(use_case, repository, actor):
     existing = {Entity}(
-        id=uuid4(), name="Original", description="Original description",
-        created_by=actor, updated_by=actor,
+        id=uuid4(),
+        name="Original",
+        description="Original description",
+        created_by=actor,
+        updated_by=actor,
     )
     repository.items[existing.id] = existing
 
@@ -304,7 +307,7 @@ async def test_update_keeps_omitted_fields(use_case, repository, actor):
     )
 
     assert result.name == "Renamed"
-    assert result.description == "Original description"   # UNSET preserved it
+    assert result.description == "Original description"  # UNSET preserved it
 
 
 async def test_update_preserves_authorship(use_case, repository, actor, other_actor):

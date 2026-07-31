@@ -308,7 +308,9 @@ class MyModuleUseCases:
 
             entity = await self.repository.create(entity)
 
-            logger.debug(f"Create my_module use case completed successfully for {entity.id}.")
+            logger.debug(
+                f"Create my_module use case completed successfully for {entity.id}."
+            )
             return entity
         except StandardException:
             raise
@@ -332,7 +334,9 @@ field `is UNSET`:
 merged = MyEntity(
     id=entity.id,
     name=entity.name if entity.name is not UNSET else existing.name,
-    description=entity.description if entity.description is not UNSET else existing.description,
+    description=entity.description
+    if entity.description is not UNSET
+    else existing.description,
     created_by=existing.created_by,
     updated_by=entity.updated_by,
 )
@@ -402,17 +406,27 @@ Three sections, in this order:
 
 ```python
 # ENTITY / DTOS
-def create_entity_mapper(payload: CreateRequest, authentication: Authentication) -> MyEntity: ...
+def create_entity_mapper(
+    payload: CreateRequest, authentication: Authentication
+) -> MyEntity: ...
 def entity_create_mapper(entity: MyEntity) -> CreateResponse: ...
-def update_entity_mapper(id: UUID, payload: UpdateRequest, authentication: Authentication) -> MyEntity: ...
-def get_all_entity_mapper(authentication, query_params) -> tuple[MyEntity, MyEntityPagination]: ...
-def entities_get_all_mapper(entity_list: MyEntityList, pagination) -> GetAllResponse: ...
+def update_entity_mapper(
+    id: UUID, payload: UpdateRequest, authentication: Authentication
+) -> MyEntity: ...
+def get_all_entity_mapper(
+    authentication, query_params
+) -> tuple[MyEntity, MyEntityPagination]: ...
+def entities_get_all_mapper(
+    entity_list: MyEntityList, pagination
+) -> GetAllResponse: ...
+
 
 # ENTITY / MODELS
 def model_entity_mapper(model: MyEntityModel) -> MyEntity: ...
 def model_entity_with_actors_mapper(model: MyEntityModel) -> MyEntity: ...
 def models_my_entity_list_mapper(rows: list) -> MyEntityList: ...
 def entity_model_mapper(entity: MyEntity) -> MyEntityModel: ...
+
 
 # ENTITY / CACHE
 def entity_cache_mapper(entity: MyEntity) -> str: ...
@@ -482,7 +496,9 @@ async def create(
     except DomainError as e:
         raise DomainException(e)
     except Exception as e:
-        logger.opt(exception=e).error("An error occurred in the create my_module endpoint.")
+        logger.opt(exception=e).error(
+            "An error occurred in the create my_module endpoint."
+        )
         raise MyModuleException()
 ```
 
@@ -494,7 +510,9 @@ Handlers return plain response schemas — `ResponseFormattingMiddleware` wraps 
 One factory per collaborator, then one that assembles the use case.
 
 ```python
-def get_my_module_cache(cache: Annotated[Redis, Depends(get_cache_session)]) -> IMyEntityCache:
+def get_my_module_cache(
+    cache: Annotated[Redis, Depends(get_cache_session)],
+) -> IMyEntityCache:
     return RedisMyEntityCache(cache=cache)
 
 
@@ -572,8 +590,8 @@ disconnects sockets whose send fails. Notification delivery always flows through
 forms. Tiers cascade — each spreads the previous one.
 
 ```python
-_path_rule("/api/v1/{module}/", "POST"),
-_path_rule("/api/v1/{module}", "POST"),
+(_path_rule("/api/v1/{module}/", "POST"),)
+(_path_rule("/api/v1/{module}", "POST"),)
 ```
 
 An endpoint missing from its tier returns 403 even with a valid token. Details:

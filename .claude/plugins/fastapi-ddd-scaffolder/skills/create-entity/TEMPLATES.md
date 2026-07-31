@@ -152,7 +152,9 @@ self.email = Email(email=self.email, enforce_allowed_domains=False)
 
 ```python
 if self.user is None and self.originated_from_broadcast is None:
-    errors.append("A {entity} must have a target user unless it originates from a broadcast.")
+    errors.append(
+        "A {entity} must have a target user unless it originates from a broadcast."
+    )
 ```
 
 **XOR ownership** — mirrors the database `CheckConstraint("num_nonnulls(a_id, b_id) = 1")`.

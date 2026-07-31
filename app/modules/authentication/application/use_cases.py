@@ -8,18 +8,18 @@ from app.modules.authentication.application.exceptions import (
     InvalidCredentialsException,
 )
 from app.modules.authentication.application.interfaces import (
-    IAuthenticationRepository,
     IAuthenticationCache,
+    IAuthenticationRepository,
     ITokenService,
 )
 from app.modules.authentication.domain.entities import Authentication
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
+)
 from app.modules.shared.application.use_cases import SharedUseCases
 from app.modules.shared.application.utils import BRASILIA_TZ
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
-)
 from app.modules.user.domain.entities import User
 
 

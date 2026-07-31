@@ -123,7 +123,9 @@ class ApiKeyInvalidException(StandardException):
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,
             message=ResponseMessages.UNAUTHORIZED_ERROR.value,
-            data={"errors": "Invalid API key. The provided key is not valid or does not exist."},
+            data={
+                "errors": "Invalid API key. The provided key is not valid or does not exist."
+            },
         )
 
 
@@ -132,7 +134,9 @@ class ApiKeyRevokedException(StandardException):
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,
             message=ResponseMessages.UNAUTHORIZED_ERROR.value,
-            data={"errors": "The provided API key has been revoked and can no longer be used."},
+            data={
+                "errors": "The provided API key has been revoked and can no longer be used."
+            },
         )
 
 
@@ -141,7 +145,9 @@ class ApiKeyExpiredException(StandardException):
         super().__init__(
             status_code=HTTPStatus.UNAUTHORIZED,
             message=ResponseMessages.UNAUTHORIZED_ERROR.value,
-            data={"errors": "The provided API key has expired. Please generate a new API key."},
+            data={
+                "errors": "The provided API key has expired. Please generate a new API key."
+            },
         )
 ```
 
@@ -194,7 +200,7 @@ Log the original with `logger.opt(exception=e).error(...)` and return this inste
 matching what `DomainException` produces:
 
 ```python
-data={"errors": ["First problem.", "Second problem."]}
+data = {"errors": ["First problem.", "Second problem."]}
 ```
 
 Do not hand-roll this for validation — raising `DomainErrors(errors)` from the entity produces it

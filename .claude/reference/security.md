@@ -80,10 +80,14 @@ from app.core.security import (
 from app.modules.authentication.domain.entities import Authentication
 
 
-authentication: Annotated[Authentication, Depends(authenticate_user)]     # any authenticated user
-authentication: Annotated[Authentication, Depends(authenticate_manager)]  # manager or above
-authentication: Annotated[Authentication, Depends(authenticate_admin)]    # admin only
-_: Annotated[None, Depends(no_authentication)]                            # public endpoint
+authentication: Annotated[
+    Authentication, Depends(authenticate_user)
+]  # any authenticated user
+authentication: Annotated[
+    Authentication, Depends(authenticate_manager)
+]  # manager or above
+authentication: Annotated[Authentication, Depends(authenticate_admin)]  # admin only
+_: Annotated[None, Depends(no_authentication)]  # public endpoint
 ```
 
 | Dependency | Returns | Used by |
@@ -110,11 +114,11 @@ Role tiers are enforced **twice** — once by the dependency and once by the pat
 must agree or the endpoint returns 403 with a valid token.
 
 ```python
-SECURITY_NO_AUTH_PATHS            # public
-SECURITY_USER_ALLOWED_PATHS       # = NO_AUTH + user paths
-SECURITY_MANAGER_ALLOWED_PATHS    # = USER + manager paths
-SECURITY_ADMIN_ALLOWED_PATHS      # = MANAGER + admin paths
-SECURITY_API_KEY_ALLOWED_PATHS    # independent; currently empty
+SECURITY_NO_AUTH_PATHS  # public
+SECURITY_USER_ALLOWED_PATHS  # = NO_AUTH + user paths
+SECURITY_MANAGER_ALLOWED_PATHS  # = USER + manager paths
+SECURITY_ADMIN_ALLOWED_PATHS  # = MANAGER + admin paths
+SECURITY_API_KEY_ALLOWED_PATHS  # independent; currently empty
 ```
 
 Each tier spreads the previous one (`*self.SECURITY_USER_ALLOWED_PATHS, ...`), so a path is
@@ -129,10 +133,10 @@ dependency:
 
 ```python
 # KEY
-_path_rule("/api/v1/key/", "POST"),
-_path_rule("/api/v1/key", "POST"),
-_path_rule("/api/v1/key/{id}/rotate/", "PATCH"),
-_path_rule("/api/v1/key/{id}/rotate", "PATCH"),
+(_path_rule("/api/v1/key/", "POST"),)
+(_path_rule("/api/v1/key", "POST"),)
+(_path_rule("/api/v1/key/{id}/rotate/", "PATCH"),)
+(_path_rule("/api/v1/key/{id}/rotate", "PATCH"),)
 ```
 
 Rules are grouped by module under an uppercase comment, matching the double-route decorators on

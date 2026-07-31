@@ -1,17 +1,17 @@
 from loguru import logger
 
 from app.core.security import hash_password
-from app.modules.shared.domain.entities import DomainError
 from app.modules.shared.application.exceptions import (
-    StandardException,
     DomainException,
+    StandardException,
 )
-from app.modules.user.application.interfaces import IUserRepository
-from app.modules.user.domain.entities import User
+from app.modules.shared.domain.entities import DomainError
 from app.modules.user.application.exceptions import (
     UserEmailAlreadyExistsException,
     UserException,
 )
+from app.modules.user.application.interfaces import IUserRepository
+from app.modules.user.domain.entities import User
 
 
 class UserUseCases:

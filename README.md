@@ -688,8 +688,8 @@ Tiers cascade, so each path is declared **once**, in the lowest tier that should
 slash forms must be registered:
 
 ```python
-_path_rule("/api/v1/key/", "POST"),
-_path_rule("/api/v1/key", "POST"),
+(_path_rule("/api/v1/key/", "POST"),)
+(_path_rule("/api/v1/key", "POST"),)
 ```
 
 > [!WARNING]

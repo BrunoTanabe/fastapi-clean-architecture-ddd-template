@@ -1,17 +1,17 @@
 from loguru import logger
 
-from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import StandardException, DomainException
+from app.modules.notification.application.exceptions import (
+    NotificationException,
+    NotificationNotFoundException,
+)
 from app.modules.notification.application.interfaces import INotificationRepository
 from app.modules.notification.domain.entities import (
     Notification,
     NotificationList,
     NotificationPagination,
 )
-from app.modules.notification.application.exceptions import (
-    NotificationException,
-    NotificationNotFoundException,
-)
+from app.modules.shared.application.exceptions import DomainException, StandardException
+from app.modules.shared.domain.entities import DomainError
 
 
 class NotificationUseCases:

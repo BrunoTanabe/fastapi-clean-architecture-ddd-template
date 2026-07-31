@@ -5,42 +5,42 @@ from fastapi.security import OAuth2PasswordRequestFormStrict
 from loguru import logger
 
 from app.core.security import (
-    no_authentication,
-    authenticate_refresh,
     authenticate_logout,
+    authenticate_refresh,
+    no_authentication,
 )
-from app.modules.authentication.domain.enums import TokenType
 from app.core.settings import settings
+from app.modules.authentication.application.exceptions import AuthenticationException
+from app.modules.authentication.application.mappers import (
+    entity_login_mapper,
+    entity_logout_mapper,
+    entity_refresh_mapper,
+    login_entity_mapper,
+    logout_entity_mapper,
+    refresh_entity_mapper,
+)
 from app.modules.authentication.application.use_cases import AuthenticationUseCases
 from app.modules.authentication.domain.entities import Authentication
-from app.modules.authentication.application.mappers import (
-    login_entity_mapper,
-    entity_login_mapper,
-    refresh_entity_mapper,
-    entity_refresh_mapper,
-    logout_entity_mapper,
-    entity_logout_mapper,
-)
+from app.modules.authentication.domain.enums import TokenType
 from app.modules.authentication.presentation.dependencies import (
     get_authentication_use_cases,
 )
 from app.modules.authentication.presentation.docs import (
-    router_docs,
     login_docs,
-    refresh_docs,
     logout_docs,
+    refresh_docs,
+    router_docs,
 )
-from app.modules.authentication.application.exceptions import AuthenticationException
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
-    RefreshResponse,
     LogoutResponse,
+    RefreshResponse,
+)
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
 )
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
-)
 from app.modules.user.application.exceptions import CookieManagementException
 
 router = APIRouter(**router_docs)

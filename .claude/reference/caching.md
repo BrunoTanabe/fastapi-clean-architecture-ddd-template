@@ -69,8 +69,10 @@ correct response to a format change, not flushing the cache and not adding migra
 ```python
 self.prefix = f"{settings.REDIS_NAMESPACE}:{module}:"
 
+
 def _key(self, suffix: str) -> str:
     return f"{self.prefix}{suffix}"
+
 
 def _tombstone(self, suffix: str) -> str:
     return f"{self.prefix}tombstone:{suffix}"
@@ -127,7 +129,9 @@ class RedisMyEntityCache(IMyEntityCache):
             suffix = f"id:{entity.id}"
 
             if await self.cache.exists(self._tombstone(suffix)):
-                logger.info(f"Entity '{entity.id}' was invalidated while being read. Skipping cache insert.")
+                logger.info(
+                    f"Entity '{entity.id}' was invalidated while being read. Skipping cache insert."
+                )
                 return None
 
             logger.debug(f"Caching entity '{entity.id}' in cache.")
@@ -236,7 +240,9 @@ def entity_cache_mapper(entity: MyEntity) -> str:
         {
             "id": str(entity.id) if entity.id else None,
             "name": entity.name,
-            "description": entity.description if entity.description is not UNSET else None,
+            "description": entity.description
+            if entity.description is not UNSET
+            else None,
             "created_by": str(entity.created_by.id) if entity.created_by else None,
             "is_active": entity.is_active,
             "created_at": entity.created_at.isoformat() if entity.created_at else None,
@@ -253,8 +259,12 @@ def cache_entity_mapper(raw: str) -> MyEntity:
         name=data["name"],
         description=data["description"],
         created_by=User(id=UUID(data["created_by"])) if data["created_by"] else None,
-        created_at=datetime.fromisoformat(data["created_at"]) if data["created_at"] else None,
-        updated_at=datetime.fromisoformat(data["updated_at"]) if data["updated_at"] else None,
+        created_at=datetime.fromisoformat(data["created_at"])
+        if data["created_at"]
+        else None,
+        updated_at=datetime.fromisoformat(data["updated_at"])
+        if data["updated_at"]
+        else None,
     )
     entity.is_active = data["is_active"]
     return entity
@@ -293,7 +303,9 @@ return existing
 
 ```python
 updated = await self.repository.update(merged)
-await self.cache.delete(existing)   # pass the pre-update entity: it holds the old key material
+await self.cache.delete(
+    existing
+)  # pass the pre-update entity: it holds the old key material
 return updated
 ```
 

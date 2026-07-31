@@ -196,7 +196,12 @@ __table_args__ = (
         "device",
         name="uq_authentications_user_id_user_agent_device",
     ),
-    Index("ix_authentications_user_id_user_agent_device", "user_id", "user_agent", "device"),
+    Index(
+        "ix_authentications_user_id_user_agent_device",
+        "user_id",
+        "user_agent",
+        "device",
+    ),
 )
 ```
 
@@ -219,7 +224,9 @@ __table_args__ = (
 
 owner_a_id: Mapped[UUID | None] = mapped_column(
     SQUID(as_uuid=True),
-    ForeignKey(f"{settings.APPLICATION_TABLE_PREFIX}_{owner_a_plural}.id", ondelete="CASCADE"),
+    ForeignKey(
+        f"{settings.APPLICATION_TABLE_PREFIX}_{owner_a_plural}.id", ondelete="CASCADE"
+    ),
     name="owner_a_id",
     comment="First possible owner, when the {entity} belongs to it",
     nullable=True,
@@ -228,7 +235,9 @@ owner_a_id: Mapped[UUID | None] = mapped_column(
 
 owner_b_id: Mapped[UUID | None] = mapped_column(
     SQUID(as_uuid=True),
-    ForeignKey(f"{settings.APPLICATION_TABLE_PREFIX}_{owner_b_plural}.id", ondelete="CASCADE"),
+    ForeignKey(
+        f"{settings.APPLICATION_TABLE_PREFIX}_{owner_b_plural}.id", ondelete="CASCADE"
+    ),
     name="owner_b_id",
     comment="Second possible owner, when the {entity} belongs to it",
     nullable=True,
@@ -286,12 +295,14 @@ children: Mapped[list["{Child}Model"]] = relationship(
 # child side
 __table_args__ = (
     UniqueConstraint(
-        "{parent_snake}_id", "position",
+        "{parent_snake}_id",
+        "position",
         name="uq_{children_plural}_{parent_snake}_id_position",
     ),
     Index(
         "ix_{children_plural}_{parent_snake}_id_position",
-        "{parent_snake}_id", "position",
+        "{parent_snake}_id",
+        "position",
     ),
 )
 ```

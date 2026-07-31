@@ -42,9 +42,8 @@ class Notification(BaseEntity):
     def __post_init__(self):
         errors: list[str] = []
 
-        if not self.originated_from_broadcast:
-            if not self.user or not self.user.id:
-                errors.append("Notification must have a target user.")
+        if not self.originated_from_broadcast and (not self.user or not self.user.id):
+            errors.append("Notification must have a target user.")
 
         if self.title is not None:
             if len(self.title) < 3:

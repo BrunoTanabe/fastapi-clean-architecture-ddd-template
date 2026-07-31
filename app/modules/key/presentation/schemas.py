@@ -133,7 +133,7 @@ class UpdateRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_at_least_one_field(self) -> "UpdateRequest":
+    def validate_at_least_one_field(self) -> UpdateRequest:
         has_name = "name" in self.model_fields_set and self.name is not None
         has_description = "description" in self.model_fields_set
         if not has_name and not has_description:

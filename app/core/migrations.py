@@ -29,7 +29,7 @@ def init_alembic_management() -> None:
             logger.info("Alembic management found. Checking for pending migrations...")
 
             with pg_engine.connect() as conn:
-                result = conn.execute(text("SELECT version_num FROM alembic_version"))  # noqa
+                result = conn.execute(text("SELECT version_num FROM alembic_version"))
                 current_revision = result.scalar()
 
             script = ScriptDirectory.from_config(alembic_cfg)

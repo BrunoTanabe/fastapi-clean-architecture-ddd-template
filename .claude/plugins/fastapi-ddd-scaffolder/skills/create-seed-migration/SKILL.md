@@ -84,8 +84,8 @@ def upgrade() -> None:
             "preferred_name": "System",
             "email": settings.SECURITY_ADMIN_EMAIL,
             "hashed_password": password_hasher.hash(settings.SECURITY_ADMIN_PASSWORD),
-            "role": "ADMIN",     # enum columns take the uppercase member NAME
-            "gender": "OTHER",   # likewise
+            "role": "ADMIN",  # enum columns take the uppercase member NAME
+            "gender": "OTHER",  # likewise
             "is_active": True,
         },
     )

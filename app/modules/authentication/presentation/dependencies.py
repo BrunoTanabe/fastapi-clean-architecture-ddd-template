@@ -5,16 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import get_cache_session
 from app.core.database import get_async_session
 from app.modules.authentication.application.interfaces import (
-    IAuthenticationRepository,
     IAuthenticationCache,
+    IAuthenticationRepository,
     ITokenService,
 )
 from app.modules.authentication.application.use_cases import AuthenticationUseCases
 from app.modules.authentication.infrastructure.caches import RedisAuthenticationCache
-from app.modules.authentication.infrastructure.services import TokenService
 from app.modules.authentication.infrastructure.repositories import (
     PostgresAuthenticationRepository,
 )
+from app.modules.authentication.infrastructure.services import TokenService
 from app.modules.shared.application.use_cases import SharedUseCases
 from app.modules.shared.presentation.dependencies import get_shared_use_cases
 

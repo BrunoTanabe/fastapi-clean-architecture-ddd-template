@@ -8,12 +8,12 @@ from loguru import logger
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.settings import settings
-from app.modules.shared.domain.enums import ResponseMessages
-from app.modules.shared.application.utils import current_timestamp, resolve_client_ip
 from app.modules.shared.application.exceptions import CoreException
+from app.modules.shared.application.utils import current_timestamp, resolve_client_ip
+from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import (
-    StandardResponse,
     StandardDetailsResponse,
+    StandardResponse,
 )
 
 _SKIP_FORMATTING_PATHS: frozenset[str] = frozenset({"/openapi.json", "/docs", "/redoc"})

@@ -6,29 +6,29 @@ from loguru import logger
 
 from app.core.security import authenticate_user
 from app.modules.authentication.domain.entities import Authentication
-from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import StandardException, DomainException
-from app.modules.shared.presentation.schemas import UpdateResponse
 from app.modules.notification.application.exceptions import NotificationException
 from app.modules.notification.application.mappers import (
-    get_all_entity_mapper,
     entities_get_all_mapper,
-    mark_as_read_entity_mapper,
     entity_mark_as_read_mapper,
+    get_all_entity_mapper,
+    mark_as_read_entity_mapper,
 )
 from app.modules.notification.application.use_cases import NotificationUseCases
 from app.modules.notification.presentation.dependencies import (
     get_notification_use_cases,
 )
 from app.modules.notification.presentation.docs import (
-    router_docs,
     get_all_docs,
     mark_as_read_docs,
+    router_docs,
 )
 from app.modules.notification.presentation.schemas import (
     GetAllNotificationsResponse,
     NotificationPaginationParams,
 )
+from app.modules.shared.application.exceptions import DomainException, StandardException
+from app.modules.shared.domain.entities import DomainError
+from app.modules.shared.presentation.schemas import UpdateResponse
 
 router = APIRouter(**router_docs)
 

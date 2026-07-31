@@ -49,13 +49,15 @@ routers = [
 ```
 
 ```python
-        tags=[
-            {
-                "name": "{Module}",
-                "description": "Endpoints for managing {module} resources.",
-            },
-            ...
-        ],
+tags = (
+    [
+        {
+            "name": "{Module}",
+            "description": "Endpoints for managing {module} resources.",
+        },
+        ...,
+    ],
+)
 ```
 
 The tag name must match `router_docs["tags"]` in the module's `docs.py`, or its endpoints land in
@@ -73,11 +75,11 @@ For each endpoint, add **both** slash forms to the tier matching its dependency:
 | `authenticate_admin` | `SECURITY_ADMIN_ALLOWED_PATHS` |
 
 ```python
-    # {MODULE}
-    _path_rule("/api/v1/{module}/", "POST"),
-    _path_rule("/api/v1/{module}", "POST"),
-    _path_rule("/api/v1/{module}/{id}/", "PATCH"),
-    _path_rule("/api/v1/{module}/{id}", "PATCH"),
+# {MODULE}
+(_path_rule("/api/v1/{module}/", "POST"),)
+(_path_rule("/api/v1/{module}", "POST"),)
+(_path_rule("/api/v1/{module}/{id}/", "PATCH"),)
+(_path_rule("/api/v1/{module}/{id}", "PATCH"),)
 ```
 
 Tiers cascade — each spreads the previous one — so declare each path once, in the lowest tier that

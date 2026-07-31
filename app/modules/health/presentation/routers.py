@@ -5,32 +5,32 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from app.core.security import authenticate_admin, no_authentication
-from app.modules.health.application.use_cases import HealthUseCases
-from app.modules.health.application.mappers import (
-    entity_health_mapper,
-    alembic_entity_mapper,
-    entity_alembic_mapper,
-)
-from app.modules.health.presentation.dependencies import get_health_use_cases
-from app.modules.health.presentation.docs import (
-    router_docs,
-    health_docs,
-    redirect_docs,
-    alembic_version_docs,
-)
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.health.application.exceptions import (
     HealthException,
 )
+from app.modules.health.application.mappers import (
+    alembic_entity_mapper,
+    entity_alembic_mapper,
+    entity_health_mapper,
+)
+from app.modules.health.application.use_cases import HealthUseCases
+from app.modules.health.presentation.dependencies import get_health_use_cases
+from app.modules.health.presentation.docs import (
+    alembic_version_docs,
+    health_docs,
+    redirect_docs,
+    router_docs,
+)
 from app.modules.health.presentation.schemas import (
-    HealthResponse,
     AlembicVersionResponse,
+    HealthResponse,
+)
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
 )
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.application.exceptions import (
-    StandardException,
-    DomainException,
-)
-from app.modules.authentication.domain.entities import Authentication
 
 router = APIRouter(**router_docs)
 

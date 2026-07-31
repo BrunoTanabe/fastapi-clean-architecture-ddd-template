@@ -4,20 +4,20 @@ from fastapi import APIRouter, Depends
 from loguru import logger
 
 from app.core.security import no_authentication
-from app.modules.example.application.use_cases import ExampleUseCases
+from app.modules.example.application.exceptions import ExampleException
 from app.modules.example.application.mappers import (
-    example_entity_mapper,
     entity_example_mapper,
+    example_entity_mapper,
 )
+from app.modules.example.application.use_cases import ExampleUseCases
 from app.modules.example.presentation.dependencies import get_example_use_cases
 from app.modules.example.presentation.docs import example_docs, example_request_docs
-from app.modules.example.application.exceptions import ExampleException
 from app.modules.example.presentation.schemas import ExampleRequest, ExampleResponse
-from app.modules.shared.domain.entities import DomainError
 from app.modules.shared.application.exceptions import (
-    StandardException,
     DomainException,
+    StandardException,
 )
+from app.modules.shared.domain.entities import DomainError
 
 router = APIRouter(**example_docs)
 

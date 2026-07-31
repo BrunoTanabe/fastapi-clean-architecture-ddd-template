@@ -1,14 +1,16 @@
 from datetime import datetime
+from typing import Any, ClassVar
 from uuid import UUID
 
-from sqlalchemy import Boolean, func, DateTime, UUID as SQUID
+from sqlalchemy import UUID as SQUID
+from sqlalchemy import Boolean, DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.modules.shared.application.utils import BRASILIA_TZ
 
 
 class Base(DeclarativeBase):
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__: ClassVar[dict[str, Any]] = {"eager_defaults": True}
 
 
 class BaseModel(Base):

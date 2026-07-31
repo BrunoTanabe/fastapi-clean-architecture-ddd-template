@@ -39,7 +39,9 @@ def entity_cache_mapper(entity: {Entity}) -> str:
         {
             "id": str(entity.id) if entity.id else None,
             "name": entity.name,
-            "description": entity.description if entity.description is not UNSET else None,
+            "description": entity.description
+            if entity.description is not UNSET
+            else None,
             "created_by": str(entity.created_by.id) if entity.created_by else None,
             "updated_by": str(entity.updated_by.id) if entity.updated_by else None,
             "is_active": entity.is_active,
@@ -58,8 +60,12 @@ def cache_entity_mapper(raw: str) -> {Entity}:
         description=data["description"],
         created_by=User(id=UUID(data["created_by"])) if data["created_by"] else None,
         updated_by=User(id=UUID(data["updated_by"])) if data["updated_by"] else None,
-        created_at=datetime.fromisoformat(data["created_at"]) if data["created_at"] else None,
-        updated_at=datetime.fromisoformat(data["updated_at"]) if data["updated_at"] else None,
+        created_at=datetime.fromisoformat(data["created_at"])
+        if data["created_at"]
+        else None,
+        updated_at=datetime.fromisoformat(data["updated_at"])
+        if data["updated_at"]
+        else None,
     )
     entity.is_active = data["is_active"]
     return entity

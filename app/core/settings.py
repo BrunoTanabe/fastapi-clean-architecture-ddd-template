@@ -1,19 +1,17 @@
+from collections.abc import Mapping
 from functools import cached_property
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-
 from jwcrypto import jwk
 from pydantic import AnyHttpUrl, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
 from app.modules.shared.domain.enums import ApplicationEnvironment, CookieSameSite
-
 
 PathRule = Mapping[str, str]
 
@@ -130,11 +128,15 @@ class Settings(BaseSettings):
     @field_validator("*", mode="before")
     @classmethod
     def strip_quotes(cls, v):
-        if isinstance(v, str) and len(v) >= 2:
-            if (v.startswith('"') and v.endswith('"')) or (
-                v.startswith("'") and v.endswith("'")
-            ):
-                return v[1:-1]
+        if (
+            isinstance(v, str)
+            and len(v) >= 2
+            and (
+                (v.startswith('"') and v.endswith('"'))
+                or (v.startswith("'") and v.endswith("'"))
+            )
+        ):
+            return v[1:-1]
         return v
 
     @field_validator("COOKIES_SAME_SITE", mode="before")
@@ -175,27 +177,24 @@ class Settings(BaseSettings):
     # APPLICATION
     @computed_field
     @cached_property
-    def APPLICATION_ENVIRONMENT_DEBUG(self) -> bool:  # noqa
-        if self.APPLICATION_ENVIRONMENT == ApplicationEnvironment.PRODUCTION.value:
-            return False
-        else:
-            return True
+    def APPLICATION_ENVIRONMENT_DEBUG(self) -> bool:
+        return self.APPLICATION_ENVIRONMENT != ApplicationEnvironment.PRODUCTION.value
 
     # COOKIES
     @computed_field
     @cached_property
-    def COOKIES_ACCESS_TOKEN_MAX_AGE(self) -> int:  # noqa
+    def COOKIES_ACCESS_TOKEN_MAX_AGE(self) -> int:
         return self.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
     @computed_field
     @cached_property
-    def COOKIES_REFRESH_TOKEN_MAX_AGE(self) -> int:  # noqa
+    def COOKIES_REFRESH_TOKEN_MAX_AGE(self) -> int:
         return self.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
 
     # JWT
     @computed_field
     @cached_property
-    def JWT_SIGNING_PRIVATE_KEY(self) -> jwk.JWK:  # noqa
+    def JWT_SIGNING_PRIVATE_KEY(self) -> jwk.JWK:
         with open(self.JWT_SIGNING_PRIVATE_KEY_PATH, "rb") as key_file:
             pem_data = key_file.read()
 
@@ -206,7 +205,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def JWT_SIGNING_PUBLIC_KEY(self) -> jwk.JWK:  # noqa
+    def JWT_SIGNING_PUBLIC_KEY(self) -> jwk.JWK:
         with open(self.JWT_SIGNING_PUBLIC_KEY_PATH, "rb") as key_file:
             pem_data = key_file.read()
 
@@ -214,7 +213,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def JWT_ENCRYPTION_PRIVATE_KEY(self) -> jwk.JWK:  # noqa
+    def JWT_ENCRYPTION_PRIVATE_KEY(self) -> jwk.JWK:
         with open(self.JWT_ENCRYPTION_PRIVATE_KEY_PATH, "rb") as key_file:
             pem_data = key_file.read()
 
@@ -225,7 +224,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def JWT_ENCRYPTION_PUBLIC_KEY(self) -> jwk.JWK:  # noqa
+    def JWT_ENCRYPTION_PUBLIC_KEY(self) -> jwk.JWK:
         with open(self.JWT_ENCRYPTION_PUBLIC_KEY_PATH, "rb") as key_file:
             pem_data = key_file.read()
 
@@ -234,7 +233,7 @@ class Settings(BaseSettings):
     # POSTGRESQL
     @computed_field
     @cached_property
-    def POSTGRESQL_ASYNC_DATABASE_URL(self) -> URL:  # noqa
+    def POSTGRESQL_ASYNC_DATABASE_URL(self) -> URL:
         return URL.create(
             drivername="postgresql+asyncpg",
             username=self.POSTGRESQL_USERNAME,
@@ -246,7 +245,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def POSTGRESQL_DATABASE_URL(self) -> URL:  # noqa
+    def POSTGRESQL_DATABASE_URL(self) -> URL:
         return URL.create(
             drivername="postgresql+psycopg2",
             username=self.POSTGRESQL_USERNAME,
@@ -259,7 +258,7 @@ class Settings(BaseSettings):
     # REDIS
     @computed_field
     @cached_property
-    def REDIS_URL(self) -> str:  # noqa
+    def REDIS_URL(self) -> str:
 
         scheme = "rediss" if self.REDIS_SSL else "redis"
         return (
@@ -269,7 +268,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def REDIS_NAMESPACE(self) -> str:  # noqa
+    def REDIS_NAMESPACE(self) -> str:
         # Every cache key hangs off this namespace. Bumping REDIS_CACHE_VERSION
         # makes the previous generation unreachable, so entries written in an old
         # payload format are never read back: they simply expire by ttl. This is
@@ -279,7 +278,7 @@ class Settings(BaseSettings):
     # SECURITY
     @computed_field
     @cached_property
-    def SECURITY_NO_AUTH_PATHS(self) -> tuple[PathRule, ...]:  # noqa
+    def SECURITY_NO_AUTH_PATHS(self) -> tuple[PathRule, ...]:
         return (
             # AUTHENTICATION
             _path_rule("/api/v1/authentication/login/", "POST"),
@@ -302,7 +301,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def SECURITY_USER_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:  # noqa
+    def SECURITY_USER_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:
         return (
             *self.SECURITY_NO_AUTH_PATHS,
             # AUTHENTICATION
@@ -320,7 +319,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def SECURITY_MANAGER_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:  # noqa
+    def SECURITY_MANAGER_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:
         return (
             *self.SECURITY_USER_ALLOWED_PATHS,
             # KNOWLEDGE
@@ -336,7 +335,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def SECURITY_ADMIN_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:  # noqa
+    def SECURITY_ADMIN_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:
         return (
             *self.SECURITY_MANAGER_ALLOWED_PATHS,
             # HEALTH
@@ -359,7 +358,7 @@ class Settings(BaseSettings):
 
     @computed_field
     @cached_property
-    def SECURITY_API_KEY_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:  # noqa
+    def SECURITY_API_KEY_ALLOWED_PATHS(self) -> tuple[PathRule, ...]:
         return ()
 
     def generate_authentication_keys(self) -> None:
@@ -420,13 +419,17 @@ class Settings(BaseSettings):
             if len(host_parts) > 1 and not self.POSTGRESQL_PORT:
                 self.POSTGRESQL_PORT = host_parts[1]
 
-        for field_name, field_info in self.model_fields.items():
+        for field_name in self.model_fields:
             value = getattr(self, field_name)
-            if isinstance(value, str) and len(value) >= 2:
-                if (value.startswith('"') and value.endswith('"')) or (
-                    value.startswith("'") and value.endswith("'")
-                ):
-                    setattr(self, field_name, value[1:-1])
+            if (
+                isinstance(value, str)
+                and len(value) >= 2
+                and (
+                    (value.startswith('"') and value.endswith('"'))
+                    or (value.startswith("'") and value.endswith("'"))
+                )
+            ):
+                setattr(self, field_name, value[1:-1])
 
 
 settings = Settings()

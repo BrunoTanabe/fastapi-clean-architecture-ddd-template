@@ -3,14 +3,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.shared.application.exceptions import StandardException
-from app.modules.user.application.interfaces import IUserRepository
-from app.modules.user.domain.entities import User
-from app.modules.user.application.mappers import (
-    model_entity_mapper,
-    entity_model_mapper,
-)
-from app.modules.user.infrastructure.models import UserModel
 from app.modules.user.application.exceptions import UserException
+from app.modules.user.application.interfaces import IUserRepository
+from app.modules.user.application.mappers import (
+    entity_model_mapper,
+    model_entity_mapper,
+)
+from app.modules.user.domain.entities import User
+from app.modules.user.infrastructure.models import UserModel
 
 
 class PostgresUserRepository(IUserRepository):
@@ -20,7 +20,7 @@ class PostgresUserRepository(IUserRepository):
     # CREATE
     async def create(self, user: User) -> User:
         try:
-            logger.info(f"Creating user {str(user.email)} in database.")
+            logger.info(f"Creating user {user.email!s} in database.")
 
             db_user: UserModel = entity_model_mapper(user)
 
@@ -28,7 +28,7 @@ class PostgresUserRepository(IUserRepository):
             await self.session.flush()
 
             logger.info(
-                f"User {str(user.email)} with id {db_user.id} created successfully."
+                f"User {user.email!s} with id {db_user.id} created successfully."
             )
             return model_entity_mapper(db_user)
         except StandardException:
@@ -42,7 +42,7 @@ class PostgresUserRepository(IUserRepository):
     # READ
     async def exists_by_email(self, user: User) -> bool:
         try:
-            logger.info(f"Checking if user {str(user.email)} exists in database.")
+            logger.info(f"Checking if user {user.email!s} exists in database.")
 
             statement = (
                 select(UserModel.id)
@@ -57,7 +57,7 @@ class PostgresUserRepository(IUserRepository):
             exists = result is not None
 
             logger.info(
-                f"Existence check for user {str(user.email)} completed. Exists: {exists}."
+                f"Existence check for user {user.email!s} completed. Exists: {exists}."
             )
             return exists
         except StandardException:
@@ -97,7 +97,7 @@ class PostgresUserRepository(IUserRepository):
 
     async def get_by_email(self, user: User) -> User | None:
         try:
-            logger.info(f"Getting user {str(user.email)} from database.")
+            logger.info(f"Getting user {user.email!s} from database.")
 
             statement = select(UserModel).where(
                 UserModel.email == str(user.email), UserModel.is_active
@@ -108,7 +108,7 @@ class PostgresUserRepository(IUserRepository):
 
             if user_model is None:
                 logger.info(
-                    f"User with email {str(user.email)} not found in database. Returning None."
+                    f"User with email {user.email!s} not found in database. Returning None."
                 )
                 return None
 

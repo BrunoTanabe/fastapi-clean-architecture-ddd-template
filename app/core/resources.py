@@ -11,8 +11,8 @@ from app.core.cache import (
     init_cache_client,
 )
 from app.core.database import (
-    init_database_client,
     close_database_client,
+    init_database_client,
 )
 from app.core.logging import init_loguru
 from app.core.migrations import init_alembic_management
@@ -43,7 +43,7 @@ async def startup(app: FastAPI) -> None:
             import ngrok
 
             logger.info("Initializing ngrok")
-            ngrok.set_auth_token(settings.NGROK_AUTH_TOKEN)  # noqa
+            ngrok.set_auth_token(settings.NGROK_AUTH_TOKEN)
 
             listener = await ngrok.forward(addr=settings.APPLICATION_PORT)
             logger.info(f"Ngrok initialized successfully, public URL: {listener.url()}")
@@ -64,7 +64,7 @@ async def startup(app: FastAPI) -> None:
         init_alembic_management()
         logger.info("Migration management initialized successfully.")
 
-        app.state.connection_manager = ConnectionManager()  # noqa
+        app.state.connection_manager = ConnectionManager()
         logger.info("WebSocket connection manager initialized successfully.")
 
         logger.info(f"{settings.APPLICATION_TITLE} is ready to serve requests.")

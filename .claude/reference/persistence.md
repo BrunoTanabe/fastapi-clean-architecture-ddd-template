@@ -26,7 +26,15 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, UUID as SQUID
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    UUID as SQUID,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.settings import settings
@@ -179,8 +187,18 @@ A natural key gets a composite `UniqueConstraint` plus a matching `Index` for lo
 
 ```python
 __table_args__ = (
-    UniqueConstraint("user_id", "user_agent", "device", name="uq_authentications_user_id_user_agent_device"),
-    Index("ix_authentications_user_id_user_agent_device", "user_id", "user_agent", "device"),
+    UniqueConstraint(
+        "user_id",
+        "user_agent",
+        "device",
+        name="uq_authentications_user_id_user_agent_device",
+    ),
+    Index(
+        "ix_authentications_user_id_user_agent_device",
+        "user_id",
+        "user_agent",
+        "device",
+    ),
 )
 ```
 
@@ -213,7 +231,7 @@ _ = [
     AuthenticationModel,
     KeyModel,
     KnowledgeModel,
-    MyEntityModel,        # keep the list alphabetical
+    MyEntityModel,  # keep the list alphabetical
     NotificationModel,
     RefreshTokenModel,
     UserModel,

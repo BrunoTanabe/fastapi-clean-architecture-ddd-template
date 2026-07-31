@@ -269,8 +269,7 @@ async def connect(
     websocket: WebSocket,
     authentication: Annotated[Authentication, Depends(authenticate_websocket)],
     use_case: Annotated[WebSocketUseCases, Depends(get_websocket_use_cases)],
-) -> None:
-    ...
+) -> None: ...
 ```
 
 ## Allowlist rules
@@ -278,19 +277,19 @@ async def connect(
 In `app/core/settings.py`, grouped under an uppercase module comment, both forms per rule:
 
 ```python
-    # {MODULE}
-    _path_rule("/api/v1/{module}/", "POST"),
-    _path_rule("/api/v1/{module}", "POST"),
-    _path_rule("/api/v1/{module}/", "GET"),
-    _path_rule("/api/v1/{module}", "GET"),
-    _path_rule("/api/v1/{module}/{id}/", "GET"),
-    _path_rule("/api/v1/{module}/{id}", "GET"),
-    _path_rule("/api/v1/{module}/{id}/", "PATCH"),
-    _path_rule("/api/v1/{module}/{id}", "PATCH"),
-    _path_rule("/api/v1/{module}/{id}/rotate/", "PATCH"),
-    _path_rule("/api/v1/{module}/{id}/rotate", "PATCH"),
-    _path_rule("/api/v1/{module}/{id}/", "DELETE"),
-    _path_rule("/api/v1/{module}/{id}", "DELETE"),
+# {MODULE}
+(_path_rule("/api/v1/{module}/", "POST"),)
+(_path_rule("/api/v1/{module}", "POST"),)
+(_path_rule("/api/v1/{module}/", "GET"),)
+(_path_rule("/api/v1/{module}", "GET"),)
+(_path_rule("/api/v1/{module}/{id}/", "GET"),)
+(_path_rule("/api/v1/{module}/{id}", "GET"),)
+(_path_rule("/api/v1/{module}/{id}/", "PATCH"),)
+(_path_rule("/api/v1/{module}/{id}", "PATCH"),)
+(_path_rule("/api/v1/{module}/{id}/rotate/", "PATCH"),)
+(_path_rule("/api/v1/{module}/{id}/rotate", "PATCH"),)
+(_path_rule("/api/v1/{module}/{id}/", "DELETE"),)
+(_path_rule("/api/v1/{module}/{id}", "DELETE"),)
 ```
 
 `{id}` is matched as `(?P<id>[^/]+)`, so a parameter can never span a `/`. Methods are uppercase

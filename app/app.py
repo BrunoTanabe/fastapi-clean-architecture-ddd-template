@@ -1,34 +1,32 @@
 from fastapi import FastAPI
-from fastapi.exceptions import HTTPException
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 
 from app.core.exception_handler import (
-    validation_exception_handler,
     http_exception_handler,
     internal_exception_handler,
+    validation_exception_handler,
 )
 from app.core.middleware import (
+    DeviceIdMiddleware,
     LogRequestMiddleware,
     ResponseFormattingMiddleware,
-    DeviceIdMiddleware,
 )
 from app.core.resources import lifespan
 from app.core.settings import settings
-from app.modules.example.presentation.routers import router as example_router
-from app.modules.shared.domain.enums import ApplicationEnvironment
-
-from app.modules.health.presentation.routers import router as health_router
 from app.modules.authentication.presentation.routers import (
     router as authentication_router,
 )
-from app.modules.user.presentation.routers import router as user_router
+from app.modules.example.presentation.routers import router as example_router
+from app.modules.health.presentation.routers import router as health_router
 from app.modules.key.presentation.routers import router as key_router
 from app.modules.knowledge.presentation.routers import router as knowledge_router
 from app.modules.notification.presentation.routers import (
     router as notification_router,
 )
+from app.modules.shared.domain.enums import ApplicationEnvironment
+from app.modules.user.presentation.routers import router as user_router
 from app.modules.websocket.presentation.routers import router as websocket_router
 
 # APPLICATION

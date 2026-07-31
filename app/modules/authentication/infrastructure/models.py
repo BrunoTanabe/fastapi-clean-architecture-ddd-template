@@ -3,22 +3,26 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import (
+    UUID as SQUID,
+)
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
     String,
     Text,
-    DateTime,
-    func,
     UniqueConstraint,
-    ForeignKey,
-    UUID as SQUID,
-    Index,
-    Boolean,
+    func,
+)
+from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.settings import settings
-from app.modules.shared.domain.enums import Role
 from app.modules.shared.application.utils import BRASILIA_TZ
+from app.modules.shared.domain.enums import Role
 from app.modules.shared.infrastructure.models import Base
 
 if TYPE_CHECKING:

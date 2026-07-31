@@ -3,6 +3,7 @@ from uuid import UUID
 
 from automapper import mapper
 
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.notification.domain.entities import (
     Notification,
     NotificationList,
@@ -18,7 +19,6 @@ from app.modules.notification.presentation.schemas import (
 )
 from app.modules.shared.domain.enums import Role
 from app.modules.shared.presentation.schemas import PaginationMeta, UpdateResponse
-from app.modules.authentication.domain.entities import Authentication
 from app.modules.user.domain.entities import User
 
 

@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.cache import get_cache_session
 from app.core.database import get_async_session
 from app.modules.authentication.application.interfaces import (
-    IAuthenticationRepository,
     IAuthenticationCache,
+    IAuthenticationRepository,
 )
 from app.modules.authentication.infrastructure.caches import RedisAuthenticationCache
 from app.modules.authentication.infrastructure.repositories import (

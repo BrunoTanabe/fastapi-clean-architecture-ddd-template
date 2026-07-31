@@ -1,7 +1,8 @@
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Enum as SQLEnum, Date, Index
+from sqlalchemy import Date, Index, String
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.settings import settings

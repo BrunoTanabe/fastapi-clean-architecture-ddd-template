@@ -1,9 +1,9 @@
 from http import HTTPStatus
 
+from app.modules.notification.domain.enums import NotificationType
+from app.modules.notification.presentation.schemas import GetAllNotificationsResponse
 from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse, UpdateResponse
-from app.modules.notification.presentation.schemas import GetAllNotificationsResponse
-from app.modules.notification.domain.enums import NotificationType
 
 # MODULE DOCS
 router_docs = {

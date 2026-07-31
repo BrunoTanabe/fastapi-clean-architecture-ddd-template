@@ -4,65 +4,68 @@ import json
 import re
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import BackgroundTasks, Depends, WebSocket
-from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
+from fastapi.requests import Request
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from jwcrypto import jwt
 from jwcrypto.common import JWException
 from jwcrypto.jwe import InvalidJWEData
-from jwcrypto.jws import InvalidJWSSignature, InvalidJWSObject
+from jwcrypto.jws import InvalidJWSObject, InvalidJWSSignature
 from jwcrypto.jwt import (
     JWTExpired,
-    JWTNotYetValid,
-    JWTMissingClaim,
-    JWTInvalidClaimValue,
     JWTInvalidClaimFormat,
+    JWTInvalidClaimValue,
+    JWTMissingClaim,
+    JWTNotYetValid,
 )
 from loguru import logger
 from pwdlib import PasswordHash
-from fastapi.requests import Request
 
-from app.core.settings import settings, PathRule
-from app.modules.authentication.application.interfaces import (
-    IAuthenticationRepository,
-    IAuthenticationCache,
+from app.core.settings import PathRule, settings
+from app.modules.authentication.application.exceptions import (
+    AuthenticationCookiesNotProvidedException,
+    AuthenticationException,
+    AuthenticationTokenException,
+    AuthenticationTokenExpiredException,
+    AuthenticationTokenInvalidException,
+    AuthenticationTokenMalformedError,
+    AuthenticationTokenNotYetValidException,
+    HashingException,
+    ModifiedTokenException,
+    RefreshTokenException,
+    RefreshTokenExpiredException,
+    RefreshTokenInvalidEndpoint,
+    RefreshTokenMalformedError,
+    RefreshTokenNotProvidedException,
+    RefreshTokenNotYetValidException,
+    UserHasNotPermissionException,
 )
-from app.modules.authentication.domain.entities import (
-    Authentication,
+from app.modules.authentication.application.interfaces import (
+    IAuthenticationCache,
+    IAuthenticationRepository,
 )
 from app.modules.authentication.application.mappers import (
     access_token_entity_mapper,
     refresh_token_entity_mapper,
 )
-from app.modules.authentication.application.exceptions import (
-    AuthenticationTokenExpiredException,
-    AuthenticationTokenNotYetValidException,
-    AuthenticationTokenException,
-    AuthenticationTokenMalformedError,
-    AuthenticationException,
-    HashingException,
-    AuthenticationCookiesNotProvidedException,
-    UserHasNotPermissionException,
-    AuthenticationTokenInvalidException,
-    ModifiedTokenException,
-    RefreshTokenNotProvidedException,
-    RefreshTokenExpiredException,
-    RefreshTokenNotYetValidException,
-    RefreshTokenException,
-    RefreshTokenMalformedError,
-    RefreshTokenInvalidEndpoint,
+from app.modules.authentication.domain.entities import (
+    Authentication,
 )
 from app.modules.key.application.exceptions import (
-    KeyException,
-    ApiKeyNotProvidedException,
-    ApiKeyInvalidException,
-    ApiKeyRevokedException,
     ApiKeyExpiredException,
+    ApiKeyInvalidException,
+    ApiKeyNotProvidedException,
+    ApiKeyRevokedException,
+    KeyException,
 )
 from app.modules.key.application.interfaces import IKeyCache, IKeyRepository
 from app.modules.key.domain.entities import Key
-from app.modules.shared.application.exceptions import OriginNotAllowedException
+from app.modules.shared.application.exceptions import (
+    OriginNotAllowedException,
+    StandardException,
+)
 from app.modules.shared.domain.enums import Role
 from app.modules.shared.presentation.dependencies import (
     get_authentication_cache,
@@ -70,8 +73,6 @@ from app.modules.shared.presentation.dependencies import (
     get_key_cache,
     get_key_repository,
 )
-from app.modules.shared.application.exceptions import StandardException
-
 
 # PASSWORD HASHING
 password_hasher = PasswordHash.recommended()
@@ -354,7 +355,7 @@ def decode_nested_refresh_token(token: str) -> Authentication:
 def _token_fingerprint(material: str, namespace: str) -> str:
     try:
         key = bytes.fromhex(settings.JWT_HASH_FINGERPRINT)
-        msg = f"{namespace}:{material}".encode("utf-8")
+        msg = f"{namespace}:{material}".encode()
 
         return hmac.new(key, msg, hashlib.sha256).hexdigest()
     except StandardException:
@@ -415,7 +416,7 @@ api_key_header = APIKeyHeader(
 def _api_key_fingerprint(material: str) -> str:
     try:
         key = bytes.fromhex(settings.API_KEY_HASH_FINGERPRINT)
-        msg = f"api-key:{material}".encode("utf-8")
+        msg = f"api-key:{material}".encode()
 
         return hmac.new(key, msg, hashlib.sha256).hexdigest()
     except StandardException:
@@ -516,7 +517,7 @@ async def _resolve_api_key(
         )
         raise ApiKeyRevokedException()
 
-    if db_key.expires_at is not None and db_key.expires_at < datetime.now(timezone.utc):
+    if db_key.expires_at is not None and db_key.expires_at < datetime.now(UTC):
         logger.info(
             f"Expired API key '{db_key.prefix}...{db_key.last_four}' was used on endpoint '{request.url.path}' with method '{request.method}'. Raising API key expired exception."
         )
@@ -578,7 +579,10 @@ def _matches_authentication_binding(
     if cached.user_agent != authentication.user_agent:
         return False
 
-    if authentication.device is not None and cached.device != authentication.device:
+    # Every binding check above is a uniform guard clause. Collapsing only the last
+    # one into `return not (...)` would break that symmetry and make the next check
+    # harder to append, so SIM103 is suppressed here deliberately.
+    if authentication.device is not None and cached.device != authentication.device:  # noqa: SIM103
         return False
 
     return True
@@ -651,10 +655,7 @@ async def _resolve_access_token_authentication(
 
     authentication: Authentication = db_authentication
 
-    if (
-        not authentication.user.role
-        == authentication.refresh_token.access_token.permission
-    ):
+    if authentication.user.role != authentication.refresh_token.access_token.permission:
         logger.info(
             f"User '{authentication.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with modified role. Raising authentication exception."
         )
@@ -718,7 +719,7 @@ async def no_authentication(request: Request) -> None:
             raise UserHasNotPermissionException()
 
         logger.debug(f"No authentication required for endpoint '{request.url.path}'.")
-        return None
+        return
     except StandardException:
         raise
     except Exception as e:
@@ -789,7 +790,7 @@ async def authenticate_admin(
             f"Authenticating admin for endpoint '{request.url.path}' with method '{request.method}'."
         )
 
-        if not authentication.refresh_token.access_token.permission == Role.ADMIN:
+        if authentication.refresh_token.access_token.permission != Role.ADMIN:
             logger.info(
                 f"User '{authentication.user.email}' attempted to access endpoint '{request.url.path}' with method '{request.method}' with insufficient permissions. Raising authentication exception."
             )
@@ -993,8 +994,8 @@ async def authenticate_websocket(
         authentication = db_authentication
 
         if (
-            not authentication.user.role
-            == authentication.refresh_token.access_token.permission
+            authentication.user.role
+            != authentication.refresh_token.access_token.permission
         ):
             logger.info(
                 f"WebSocket user '{authentication.user.email}' has a modified role token. "

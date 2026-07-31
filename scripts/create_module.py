@@ -1,7 +1,6 @@
 import os
 import sys
 
-
 MODULE_STRUCTURE = {
     "": ["__init__.py"],
     "application": [

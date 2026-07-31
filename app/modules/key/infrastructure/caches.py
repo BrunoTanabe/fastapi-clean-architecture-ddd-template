@@ -35,7 +35,7 @@ class RedisKeyCache(IKeyCache):
                 logger.info(
                     f"Api key '{key.prefix}...{key.last_four}' was invalidated while being read. Skipping cache insert."
                 )
-                return None
+                return
 
             logger.debug(f"Caching api key '{key.prefix}...{key.last_four}' in cache.")
 
@@ -52,7 +52,7 @@ class RedisKeyCache(IKeyCache):
             logger.opt(exception=e).error(
                 "An error occurred in the insert key cache. The request continues without caching."
             )
-            return None
+            return
 
     # READ
     async def get_by_hashed_key(self, hashed_key: str) -> Key | None:
@@ -78,7 +78,7 @@ class RedisKeyCache(IKeyCache):
                 logger.warning(
                     f"Api key '{key.id}' has no hashed key. Skipping cache delete."
                 )
-                return None
+                return
 
             logger.debug(f"Invalidating api key '{key.id}' in cache.")
 
@@ -99,4 +99,4 @@ class RedisKeyCache(IKeyCache):
             logger.opt(exception=e).error(
                 "An error occurred in the delete key cache. The entry remains until its ttl expires."
             )
-            return None
+            return
