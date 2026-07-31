@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-clean-architecture-ddd-template"
-version = "1.0.0"
+version = "3.0.0"
 description = "Python FastAPI backend template, organized by Clean Architecture layers (domain, application, infrastructure, presentation) and DDD principles. Includes dependency management, Docker support, testing boilerplate, CI-friendly setup and best practices, modular scaffolding to jump-start new projects and ensure long-term maintainability."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -20,11 +20,37 @@ dependencies = [
     "py-automapper>=2.2.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
+    "redis>=7.4.0",
     "sqlalchemy>=2.0.48",
     "stackprinter>=0.2.12",
 ]
 
 [dependency-groups]
 dev = [
+    "ngrok>=1.7.0",
     "ruff>=0.15.4",
+]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+ignore = [
+    "BLE001",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/modules/*/infrastructure/models.py" = ["UP037"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
 ]

@@ -1,21 +1,48 @@
 from http import HTTPStatus
 from typing import cast
 
-from fastapi import Request
+from fastapi import Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Receive, Scope, Send
 
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.application.exceptions import StandardException
 from app.modules.shared.application.utils import current_timestamp
+from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import (
-    StandardResponse,
     StandardDetailsResponse,
+    StandardResponse,
 )
 
 
-async def validation_exception_handler(request: Request, exc: Exception) -> Response:
+class _WebSocketRejectionResponse(Response):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:  # type: ignore[override]
+        await send(
+            {
+                "type": "websocket.http.response.start",
+                "status": self.status_code,
+                "headers": [],
+            }
+        )
+        await send(
+            {
+                "type": "websocket.http.response.body",
+                "body": b"",
+                "more_body": False,
+            }
+        )
+
+
+async def validation_exception_handler(
+    request: Request | WebSocket, exc: Exception
+) -> Response:
+    if isinstance(request, WebSocket):
+        return _WebSocketRejectionResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+
     err = cast(RequestValidationError, exc)
     errors = {e["loc"][-1]: e["msg"] for e in err.errors()}
 
@@ -37,11 +64,17 @@ async def validation_exception_handler(request: Request, exc: Exception) -> Resp
     )
 
 
-async def http_exception_handler(request: Request, exc: Exception) -> Response:
+async def http_exception_handler(
+    request: Request | WebSocket, exc: Exception
+) -> Response:
+    if isinstance(request, WebSocket):
+        err = cast(StarletteHTTPException, exc)
+        return _WebSocketRejectionResponse(status_code=err.status_code)
+
     err = cast(StarletteHTTPException, exc)
-    if hasattr(err, "message") and hasattr(err, "data"):
-        message = getattr(err, "message")
-        data = getattr(err, "data")
+    if isinstance(err, StandardException):
+        message = err.message
+        data = err.data
     else:
         if err.status_code == status.HTTP_400_BAD_REQUEST:
             message = ResponseMessages.BAD_REQUEST.value
@@ -79,7 +112,14 @@ async def http_exception_handler(request: Request, exc: Exception) -> Response:
     )
 
 
-async def internal_exception_handler(request: Request) -> Response:
+async def internal_exception_handler(
+    request: Request | WebSocket, exc: Exception
+) -> Response:
+    if isinstance(request, WebSocket):
+        return _WebSocketRejectionResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
     response_content = StandardResponse(
         code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         method=request.method,

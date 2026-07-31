@@ -1,625 +1,1242 @@
-# FastAPI Clean Architecture and Domain-Driven Design Template
+<div align="center">
 
-O repositório **fastapi-clean-architecture-ddd-template** é um template de projeto backend em Python, voltado para aplicações que utilizam FastAPI e eventualmente componentes de Inteligência Artificial. Este projeto serve como base para criar novas aplicações seguindo uma arquitetura modular e escalável, promovendo separação de responsabilidades e facilidade de manutenção. A arquitetura adotada se inspira em princípios de **Clean Architecture** e **Domain-Driven Design (DDD)**, organizando o código em camadas bem definidas: domínio, aplicação, infraestrutura e apresentação, além de componentes centrais de configuração.
+# FastAPI Clean Architecture and DDD Template
 
-Este README documenta a estrutura do projeto, explicando a finalidade de cada pasta e arquivo, as convenções de nomenclatura, dependências utilizadas e as melhores práticas a serem seguidas. Ao final, qualquer membro da equipe deve ser capaz de entender a arquitetura proposta e saber como estender o template para novas funcionalidades sem dúvidas.
+**Um template de backend Python pronto para produção — Clean Architecture, Domain-Driven Design e tudo já integrado.**
+
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-8-FF4438?logo=redis&logoColor=white)](https://redis.io/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
+[![Ruff](https://img.shields.io/badge/Ruff-linted-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[![Stars](https://img.shields.io/github/stars/BrunoTanabe/fastapi-clean-architecture-ddd-template?style=flat&logo=github)](https://github.com/BrunoTanabe/fastapi-clean-architecture-ddd-template/stargazers)
+[![Forks](https://img.shields.io/github/forks/BrunoTanabe/fastapi-clean-architecture-ddd-template?style=flat&logo=github)](https://github.com/BrunoTanabe/fastapi-clean-architecture-ddd-template/network/members)
+[![Issues](https://img.shields.io/github/issues/BrunoTanabe/fastapi-clean-architecture-ddd-template?style=flat&logo=github)](https://github.com/BrunoTanabe/fastapi-clean-architecture-ddd-template/issues)
+[![Last commit](https://img.shields.io/github/last-commit/BrunoTanabe/fastapi-clean-architecture-ddd-template?style=flat&logo=github)](https://github.com/BrunoTanabe/fastapi-clean-architecture-ddd-template/commits)
+
+[English](README.md) · **Português**
+
+</div>
+
+---
+
+A maioria dos templates de "clean architecture" entrega pastas vazias e um diagrama. Este entrega
+uma **aplicação funcionando**: autenticação por cookies com JWTs aninhados, gestão de chaves de API
+com rotação, controle de acesso por papel validado duas vezes, cache-aside no Redis com
+invalidação por tombstone, entrega em tempo real via WebSocket, notificações com fan-out por papel
+e uma stack Docker que aplica as próprias migrações ao subir.
+
+Nove módulos, vinte e três rotas, sete tabelas — todos seguindo um único conjunto de padrões que
+você pode copiar para o décimo módulo.
 
 ## Sumário
 
-* [Visão Geral da Arquitetura](#visão-geral-da-arquitetura)
-* [Estrutura de Pastas e Arquivos](#estrutura-de-pastas-e-arquivos)
+- [Por que este template](#por-que-este-template)
+- [Começando](#começando)
+- [Arquitetura](#arquitetura)
+- [Módulos](#módulos)
+- [Referência da API](#referência-da-api)
+- [Segurança](#segurança)
+- [Dados](#dados)
+- [Cache](#cache)
+- [Desenvolvimento](#desenvolvimento)
+- [Configuração](#configuração)
+- [Limitações conhecidas](#limitações-conhecidas)
+- [Contribuindo](#contribuindo)
+- [Licença](#licença)
 
-  * [Raiz do Projeto](#raiz-do-projeto)
-  * [Diretório `app/` (Aplicação)](#diretório-app-aplicação)
+---
 
-    * [Diretório `app/core/` (Configuração Central)](#diretório-appcore-configuração-central)
-    * [Diretório `app/modules/` (Módulos de Funcionalidade)](#diretório-appmodules-módulos-de-funcionalidade)
+## Por que este template
 
-      * [Módulo de Exemplo: `app/modules/example/`](#módulo-de-exemplo-appmodulesexample)
+| | Recurso | O que você realmente recebe |
+|---|---|---|
+| 🏛️ | **Clean Architecture + DDD** | Quatro camadas por módulo com direção de dependência garantida. `domain/` nunca importa framework. |
+| 🔐 | **Autenticação bem feita** | JWT aninhado (JWS assinado com Ed25519, envolvido em um JWE cifrado com ECDH-ES + A256GCM), entregue em cookies HTTP-only, com fingerprints HMAC guardados no servidor para que os tokens sejam revogáveis. |
+| 🔑 | **Chaves de API** | Ciclo completo — criar, listar, rotacionar, revogar. A chave em texto puro é devolvida uma única vez e nunca é armazenada. |
+| 👥 | **Acesso por papel** | `admin` / `manager` / `user`, validado pela dependência **e** por uma allowlist de rotas. Dois portões independentes. |
+| ⚡ | **Cache-aside no Redis** | Chaves versionadas e com namespace, com invalidação por tombstone que fecha a corrida de credencial revogada. Caches nunca lançam exceção — uma queda do Redis degrada para o banco. |
+| 🔔 | **Notificações** | Fan-out individual e em cascata por papel, despachado por WebSocket em melhor esforço depois que a escrita é confirmada. |
+| 🔌 | **WebSockets** | Canal autenticado com validação de `Origin`, já que o CORS não cobre o handshake. |
+| 📦 | **Stack automigratória** | `docker compose up` sobe Postgres, Redis, pgAdmin e RedisInsight; a aplicação executa o Alembic até a head na inicialização. |
+| 📖 | **OpenAPI que significa algo** | Todo endpoint documenta o contrato completo de erros, não só o caminho feliz. |
 
-        * [Domain (Domínio)](#domain-domínio)
-        * [Application (Aplicação)](#application-aplicação)
-        * [Infrastructure (Infraestrutura)](#infrastructure-infraestrutura)
-        * [Presentation (Apresentação)](#presentation-apresentação)
-  * [Diretório `docs/` (Documentos)](#diretório-docs-documentos)
-  * [Diretório `scripts/` (Scripts Úteis)](#diretório-scripts-scripts-úteis)
-  * [Diretório `test/` (Testes)](#diretório-test-testes)
-* [Guia de Implementação e Boas Práticas](#guia-de-implementação-e-boas-práticas)
+---
 
-  * [Separação de Responsabilidades e Camadas](#separação-de-responsabilidades-e-camadas)
-  * [Nomenclatura de Arquivos e Código](#nomenclatura-de-arquivos-e-código)
-  * [Inversão de Dependência e Injeção de Dependências](#inversão-de-dependência-e-injeção-de-dependências)
-  * [Padrões de Código e Qualidade](#padrões-de-código-e-qualidade)
-  * [Estruturação dos Testes](#estruturação-dos-testes)
-* [Dependências do Projeto](#dependências-do-projeto)
-* [Configuração do Ambiente e Execução](#configuração-do-ambiente-e-execução)
+## Começando
 
-  * [Gerenciador de Pacotes UV](#gerenciador-de-pacotes-uv)
-  * [Configurando Variáveis de Ambiente (.env)](#configurando-variáveis-de-ambiente-env)
-  * [Instalação de Dependências](#instalação-de-dependências)
-  * [Executando a Aplicação](#executando-a-aplicação)
-  * [Utilizando Docker (Opcional)](#utilizando-docker-opcional)
-  * [Utilizando Makefile](#utilizando-makefile)
-  * [Migrações de Banco de Dados](#migrações-de-banco-de-dados)
-* [Considerações Finais](#considerações-finais)
+### Pré-requisitos
 
-## Visão Geral da Arquitetura
+| Ferramenta | Versão | Para quê |
+|---|---|---|
+| [Python](https://www.python.org/) | 3.14+ | Fixado em `.python-version` |
+| [uv](https://docs.astral.sh/uv/) | atual | Gestão de dependências e do ambiente virtual |
+| [Docker](https://www.docker.com/) + Compose | atual | Postgres, Redis e as interfaces administrativas |
 
-A arquitetura do **fastapi-clean-architecture-ddd-template** é estruturada para separar claramente as responsabilidades de cada parte da aplicação, de forma semelhante à Clean Architecture. Isso significa que as **regras de negócio e lógica de domínio** ficam isoladas de detalhes de infraestrutura ou interfaces externas. Em alto nível, adotamos as seguintes camadas:
+### Cinco comandos
 
-* **Domain (Domínio):** Contém as entidades de negócio, regras de negócio puras, objetos de valor e serviços de domínio. Esta camada é independente de qualquer framework ou detalhe de implementação externo. Ela representa o núcleo da aplicação (o motivo pelo qual o software existe) e não deve ter dependências para fora dela.
-* **Application (Aplicação):** Implementa os **casos de uso** (use cases) da aplicação. Orquestra operações do domínio, coordenando dados entre a interface de entrada (por exemplo, a API) e o domínio. Aqui definimos também **interfaces (portas)** que o domínio/aplicação espera para realizar certas tarefas (por exemplo, repositórios de dados). A camada de Application depende somente da camada de Domínio (por exemplo, conhece entidades e interfaces de repositório) e não conhece detalhes de infraestrutura.
-* **Infrastructure (Infraestrutura):** Fornece implementações concretas para as interfaces definidas na camada de Application (ou Domínio). Aqui entram detalhes como acesso a banco de dados, chamadas a APIs externas, modelos de banco de dados (ORM), envio de e-mails, integração com serviços de IA, etc. A camada de Infraestrutura **depende** das camadas de Domínio e Aplicação (por exemplo, importa entidades ou interfaces para implementar repositórios), mas nunca o contrário. Essa camada lida com *como* as coisas são persistidas ou comunicadas externamente.
-* **Presentation (Apresentação):** Também chamada de interface ou camada de interface do usuário. No contexto de uma API web, é onde definimos os **controllers** ou **routers** do FastAPI, os **esquemas** (models Pydantic) para entrada e saída de dados da API e as **dependências** de request (como injeção de repositórios, autenticação, etc). Essa camada recebe as requisições dos usuários (HTTP), valida dados, aciona os casos de uso apropriados na camada de Application e devolve a resposta HTTP. Ela depende das camadas de Aplicação e Domínio (por exemplo, usa use cases, esquemas do domínio), mas não deve conter lógica de negócio em si.
+```bash
+# 1. Clone
+git clone https://github.com/BrunoTanabe/fastapi-clean-architecture-ddd-template.git
+cd fastapi-clean-architecture-ddd-template
 
-Além dessas camadas principais, o projeto possui um núcleo de **Configuração Central (Core)** para aspectos transversais à aplicação (como configurações, conexão ao banco de dados, logging, segurança comum, etc.), e estruturas auxiliares para documentação, scripts de desenvolvimento e testes.
+# 2. Configure — toda chave do .env.example precisa de um valor
+cp .env.example .env
 
-Essa separação traz diversos benefícios:
+# 3. Instale as dependências
+uv sync
 
-* **Manutenibilidade:** Alterações em regras de negócio (domínio) não afetam detalhes externos e vice-versa. Cada preocupação está isolada.
-* **Testabilidade:** Podemos testar a lógica de negócio em isolamento, simulando dependências de infraestrutura através de interfaces (mocks ou stubs).
-* **Flexibilidade e Extensibilidade:** Podemos trocar implementações de infraestrutura (por exemplo, mudar o banco de dados ou fornecedor de IA) sem refatorar a lógica de negócio, bastando fornecer uma nova implementação da interface esperada.
-* **Organização por Funcionalidade:** A pasta `app/modules` permite agrupar código relacionado a um mesmo contexto de negócio (módulo) em um só local, ao invés de por camadas globais separadas. Cada módulo contém suas subcamadas de domain, application, etc., facilitando encontrar tudo relacionado àquela funcionalidade.
+# 4. Suba Postgres, Redis e as interfaces administrativas
+make dependencies-up-silent
 
-Resumindo, a arquitetura proposta segue o princípio da **inversão de dependências**: camadas internas não sabem nada sobre as externas, e as dependências do sistema sempre apontam das camadas de fora para as de dentro (Presentation -> Application -> Domain, e Infrastructure -> Domain/Application). Abaixo detalhamos toda a estrutura de pastas e arquivos do projeto e o papel de cada um.
+# 5. Rode a API (as migrações são aplicadas automaticamente na inicialização)
+make dev
+```
 
-## Estrutura de Pastas e Arquivos
+> [!IMPORTANT]
+> O passo 2 não é opcional. `Settings` declara a maioria dos campos como **obrigatórios**, então a
+> aplicação lança um `ValidationError` na inicialização se alguma chave ficar vazia. Veja
+> [Configuração](#configuração) para todas as chaves e um valor adequado para cada uma.
 
-A seguir apresentamos a estrutura de diretórios e arquivos do projeto, conforme existente no repositório:
+### O que você obtém
+
+| Serviço | URL | Observações |
+|---|---|---|
+| **API** | http://localhost:8000 | `APPLICATION_PORT` |
+| **Swagger UI** | http://localhost:8000/docs | Desabilitado em `production` |
+| **ReDoc** | http://localhost:8000/redoc | Desabilitado em `production` |
+| **OpenAPI JSON** | http://localhost:8000/openapi.json | Desabilitado em `production` |
+| **Health check** | http://localhost:8000/health/ | Público |
+| **pgAdmin** | http://localhost:8080 | `PGADMIN_EMAIL` / `PGADMIN_PASSWORD` |
+| **RedisInsight** | http://localhost:8081 | Já apontado para o serviço `cache` |
+| **Ferramentas de dev** | http://localhost:8000/devtools/ | Somente em `development` — cliente WebSocket de teste, documentação AsyncAPI |
+
+### Primeira requisição
+
+Um usuário administrador é criado a partir de `SECURITY_ADMIN_EMAIL` / `SECURITY_ADMIN_PASSWORD`.
+Faça login — repare que este endpoint recebe dados **form-encoded**, não JSON:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/authentication/login/ \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=$SECURITY_ADMIN_EMAIL&password=$SECURITY_ADMIN_PASSWORD" \
+  -c cookies.txt
+
+curl http://localhost:8000/api/v1/user/me/ -b cookies.txt
+```
+
+> [!TIP]
+> Uma coleção do Postman cobrindo todos os endpoints está em [`docs/`](docs/). Importe-a e depois
+> preencha as variáveis de coleção `admin_email` e `admin_password`.
+
+---
+
+## Arquitetura
+
+Cada módulo é dividido em quatro camadas. As dependências apontam **apenas para dentro** — o
+domínio não conhece nada além de si mesmo.
+
+```mermaid
+flowchart TB
+    subgraph Outer[" "]
+        direction TB
+        P["<b>presentation/</b><br/>routers · schemas<br/>docs · dependencies"]
+        I["<b>infrastructure/</b><br/>models · repositories<br/>caches · services"]
+    end
+
+    subgraph Inner[" "]
+        direction TB
+        A["<b>application/</b><br/>casos de uso · interfaces<br/>mappers · exceptions"]
+        D["<b>domain/</b><br/>entidades · objetos de valor<br/>enums"]
+    end
+
+    CORE["<b>core/</b><br/>settings · security · database<br/>cache · middleware · logging"]
+    SHARED["<b>shared/</b><br/>BaseEntity · BaseModel<br/>SharedUseCases · UNSET"]
+
+    P --> A
+    I --> A
+    A --> D
+    P -.-> CORE
+    I -.-> CORE
+    A --> SHARED
+    D --> SHARED
+
+    style D fill:#2d6a4f,stroke:#1b4332,color:#fff
+    style A fill:#40916c,stroke:#2d6a4f,color:#fff
+    style I fill:#1d3557,stroke:#0d1b2a,color:#fff
+    style P fill:#457b9d,stroke:#1d3557,color:#fff
+    style CORE fill:#6c584c,stroke:#463f3a,color:#fff
+    style SHARED fill:#7f5539,stroke:#582f0e,color:#fff
+```
+
+| Camada | Diretório | Contém | Pode importar |
+|---|---|---|---|
+| **Domínio** | `domain/` | `entities.py`, `value_objects.py`, `enums.py` | Apenas `shared`. **Nada** de FastAPI, SQLAlchemy ou Pydantic. |
+| **Aplicação** | `application/` | `use_cases.py`, `interfaces.py`, `mappers.py`, `exceptions.py`, `utils.py` | `domain`, `shared` |
+| **Infraestrutura** | `infrastructure/` | `models.py`, `repositories.py`, `caches.py`, `services.py` | `domain`, `application`, `core` |
+| **Apresentação** | `presentation/` | `routers.py`, `schemas.py`, `docs.py`, `dependencies.py` | tudo abaixo dela |
+
+A camada de aplicação depende de contratos `typing.Protocol`, nunca de classes concretas. É isso
+que torna um caso de uso testável com um fake em memória e permite trocar o Postgres por qualquer
+outra coisa sem tocar na lógica de negócio.
+
+<details>
+<summary><b>Os três formatos de tratamento de erro</b> — um por tipo de camada</summary>
+
+<br/>
+
+Errar aqui é o equívoco de maior impacto no código, então vale enunciar com precisão.
+
+**3 ramos** — casos de uso e handlers de rota:
+
+```python
+except StandardException:
+    raise
+except DomainError as e:
+    raise DomainException(e)
+except Exception as e:
+    logger.opt(exception=e).error("An error occurred in the create key endpoint.")
+    raise KeyException()
+```
+
+**2 ramos** — repositórios e serviços. Sem ramo `DomainError`: essas camadas nunca avaliam regras
+de domínio.
+
+```python
+except StandardException:
+    raise
+except Exception as e:
+    logger.opt(exception=e).error("An error occurred in the create key repository.")
+    raise KeyException()
+```
+
+**Nunca lança** — caches. Todo método captura, registra e devolve `None`.
+
+```python
+except Exception as e:
+    logger.opt(exception=e).error(
+        "An error occurred in the get key by hashed key cache. Falling back to the database."
+    )
+    return None
+```
+
+> [!WARNING]
+> `except StandardException` **precisa vir primeiro**. `StandardException` estende
+> `HTTPException`, então qualquer outra ordem transforma todo 404 e 409 intencional em um 500.
+
+Uma falha de cache degrada para o banco e jamais pode derrubar uma requisição — por isso o formato
+de cache não tem nenhum ramo de re-lançamento.
+
+</details>
+
+<details>
+<summary><b>Anatomia de um módulo</b> — cada arquivo e o que pertence a ele</summary>
+
+<br/>
 
 ```text
-fastapi-clean-architecture-ddd-template
-├── .env
-├── .env.example
-├── .git/
-├── .gitignore
-├── .python-version
-├── .venv/
-├── Dockerfile
-├── LICENSE
-├── README-PTBR.md
-├── README.md
-├── alembic.ini
-├── app
-│   ├── __init__.py
-│   ├── app.py
-│   ├── core
-│   │   ├── __init__.py
-│   │   ├── database.py
-│   │   ├── exception_handler.py
-│   │   ├── exceptions.py
-│   │   ├── logging.py
-│   │   ├── middleware.py
-│   │   ├── migrations.py
-│   │   ├── resources.py
-│   │   ├── schemas.py
-│   │   ├── security.py
-│   │   ├── settings.py
-│   │   └── utils.py
-│   └── modules
-│       ├── __init__.py
-│       └── example
-│           ├── __init__.py
-│           ├── application
-│           │   ├── __init__.py
-│           │   ├── interfaces.py
-│           │   ├── use_cases.py
-│           │   └── utils.py
-│           ├── domain
-│           │   ├── __init__.py
-│           │   ├── entities.py
-│           │   ├── mappers.py
-│           │   ├── services.py
-│           │   └── value_objects.py
-│           ├── infrastructure
-│           │   ├── __init__.py
-│           │   ├── models.py
-│           │   └── repositories.py
-│           └── presentation
-│               ├── __init__.py
-│               ├── dependencies.py
-│               ├── docs.py
-│               ├── exceptions.py
-│               ├── routers.py
-│               └── schemas.py
-├── docker-compose.yaml
-├── docs/
-├── migrations/
-│   ├── env.py
-│   ├── README
-│   └── versions
-├── pyproject.toml
-├── requirements.txt
-├── scripts
-│   ├── __init__.py
-│   └── directory_tree.py
-├── test
-│   ├── __init__.py
-│   ├── core
-│   │   └── __init__.py
-│   └── modules
-│       ├── __init__.py
-│       └── example
-│           └── __init__.py
-└── uv.lock
+app/modules/{module}/
+├── domain/
+│   ├── entities.py          Dataclasses que estendem BaseEntity; validação em __post_init__
+│   ├── value_objects.py     Classes simples: _normalize → _validate → __str__ → __eq__
+│   └── enums.py             Enums do módulo, sempre (str, Enum)
+├── application/
+│   ├── interfaces.py        Contratos Protocol: I{Entity}Repository / Cache / Service
+│   ├── use_cases.py         Uma classe {Module}UseCases; as regras de negócio vivem aqui
+│   ├── mappers.py           # ENTITY / DTOS · # ENTITY / MODELS · # ENTITY / CACHE
+│   ├── exceptions.py        {Module}Exception genérica + uma por regra de negócio
+│   └── utils.py             Auxiliares locais do módulo
+├── infrastructure/
+│   ├── models.py            Modelos SQLAlchemy que estendem BaseModel
+│   ├── repositories.py      Postgres{Entity}Repository — flush(), nunca commit()
+│   ├── caches.py            Redis{Entity}Cache — com namespace, tombstone e sem exceções
+│   └── services.py          Sistemas externos ou com estado, atrás de um Protocol
+└── presentation/
+    ├── routers.py           Handlers: payload → mapper → caso de uso → mapper → retorno
+    ├── schemas.py           Pydantic v2 com Field + ConfigDict completos
+    ├── docs.py              router_docs + um {action}_docs por endpoint
+    └── dependencies.py      Fábricas Depends, retornando o tipo Protocol
 ```
 
-A seguir, explicamos cada parte desta estrutura em detalhes:
+Arquivos vazios são normais. Um módulo mantém o esqueleto completo mesmo quando um arquivo de
+camada não é usado — um `caches.py` vazio significa "este módulo não usa cache", não "alguém
+esqueceu um arquivo".
+
+`scripts/create_module.py` gera exatamente essa árvore.
+
+</details>
+
+### Ciclo de vida de uma requisição
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant MW as Middlewares
+    participant R as Router
+    participant M as Mapper
+    participant UC as Caso de uso
+    participant Repo as Repositório
+    participant Cache as Redis
+    participant DB as PostgreSQL
+
+    C->>MW: requisição HTTP
+    Note over MW: CORS → ResponseFormatting →<br/>LogRequest → DeviceId
+    MW->>R: requisição tratada
+    R->>R: dependência authenticate_*<br/>(papel + allowlist de rotas)
+    R->>M: payload + Authentication
+    M-->>R: entidade de domínio
+    R->>UC: entidade
+    UC->>Cache: leitura via cache?
+    alt cache encontrado
+        Cache-->>UC: entidade
+    else ausente, ou Redis indisponível
+        UC->>Repo: consulta
+        Repo->>DB: SELECT (flush, nunca commit)
+        DB-->>Repo: registros
+        Repo-->>UC: entidade de domínio
+        UC->>Cache: popula (melhor esforço)
+    end
+    UC-->>R: entidade de domínio
+    R->>M: entidade
+    M-->>R: schema de resposta
+    R-->>MW: schema simples
+    Note over MW: envolve no envelope StandardResponse
+    MW-->>C: resposta JSON
+```
+
+Handlers nunca montam o envelope de resposta — quem faz isso é o `ResponseFormattingMiddleware`.
+Handlers nunca contêm lógica de negócio — quem faz isso é o caso de uso. O corpo de todo handler é
+exatamente `payload → mapper → caso de uso → mapper → retorno`.
+
+---
+
+## Módulos
+
+```text
+app/modules/
+├── shared/           Tipos base usados por todos os módulos — sem rotas
+├── authentication/   Login, refresh, logout; emissão de JWT aninhado
+├── user/             Contas internas e papéis
+├── key/              Chaves de API — o módulo mais completo
+├── knowledge/        CRUD + referência de notificação em broadcast
+├── notification/     Fan-out individual e por papel
+├── websocket/        Entrega em tempo real
+├── health/           Liveness e versão do Alembic
+└── example/          Módulo de referência mínimo, sem persistência
+```
+
+| Módulo | Rotas | Persistência | Cache | Serviço | Papel |
+|---|---|---|---|---|---|
+| `authentication` | 3 | ✅ | ✅ | `ITokenService` | Ciclo de sessão, rotação de tokens |
+| `key` | 6 | ✅ | ✅ | `IKeyService` | **Referência canônica** — copie este |
+| `user` | 2 | ✅ | — | — | Contas, papéis, `/me` |
+| `knowledge` | 4 | ✅ | parcial | — | CRUD + notificações em broadcast |
+| `notification` | 2 | ✅ | — | — | Fan-out individual + cascata por papel |
+| `websocket` | 1 + WS | — | — | `IConnectionManagerService` | Em memória, processo único |
+| `health` | 3 | `alembic_version` | — | — | Liveness, redirecionamento da doc, estado das migrações |
+| `example` | 1 | — | — | — | Demonstração mínima; sem repositório e sem modelo |
+| `shared` | — | tipos base | — | — | `BaseEntity`, `BaseModel`, `SharedUseCases` |
+
+> [!TIP]
+> Quando um padrão parecer ambíguo, leia **`key`**. É o único módulo que exercita todas as
+> camadas: cache com tombstone, um serviço, CRUD completo com rotação, projeção de atores e
+> tratamento de segredo transitório.
+
+<details>
+<summary><b>O que vive em <code>shared</code></b></summary>
+
+<br/>
+
+| Arquivo | Exporta |
+|---|---|
+| `domain/entities.py` | `BaseEntity`, `DomainError`, `DomainErrors`, `Pagination`, `PaginatedList` |
+| `domain/value_objects.py` | `UNSET`, `RESOURCE_NAME_PATTERN`, `Email`, `Name`, `Phone` |
+| `domain/enums.py` | `ApplicationEnvironment`, `CookieSameSite`, `ResponseMessages`, `Role`, `SortOrder` |
+| `infrastructure/models.py` | `Base`, `BaseModel` |
+| `application/exceptions.py` | `StandardException`, `DomainException`, `CoreException`, `OriginNotAllowedException` |
+| `application/use_cases.py` | `SharedUseCases` — notificações e busca de usuários |
+| `application/utils.py` | `BRASILIA_TZ`, `current_timestamp()`, `resolve_client_ip()` |
+| `presentation/schemas.py` | `StandardResponse`, `PaginationParams`, `PaginationMeta`, `CreateResponse`, `UpdateResponse`, `DeleteResponse` |
+| `presentation/dependencies.py` | Fábricas de repositórios, caches e `SharedUseCases` entre módulos |
 
-### Raiz do Projeto
+**Campos herdados — nunca redeclare estes.**
 
-Na raiz do repositório encontram-se arquivos de configuração, ambiente e documentação geral do projeto:
+`BaseModel` (ORM) fornece `id` (UUID, `gen_random_uuid()`), `is_active` (marcador de exclusão
+lógica), `created_at` e `updated_at` (fuso de Brasília, gerenciados pelo banco).
 
-* **.env:** Arquivo de variáveis de ambiente (não incluído no controle de versão) que armazena configurações sensíveis ou específicas do ambiente (por exemplo, credenciais, URLs de banco de dados, configurações de API keys, etc.). Este arquivo é lido pela aplicação (via `pydantic-settings`) para configurar parâmetros em tempo de execução. Cada desenvolvedor pode ter seu próprio `.env` local com configurações adequadas ao seu ambiente.
-* **.env.example:** Exemplo do arquivo de ambiente, incluindo apenas nomes de variáveis esperadas e valores de exemplo ou vazios. Serve de documentação para quais variáveis precisam ser definidas no `.env` real, sem expor informações sensíveis. A prática recomendada é copiar este arquivo para `.env` e preencher os valores necessários.
-* **.gitignore:** Lista de padrões de arquivos e pastas que o Git deve ignorar (não versionar). Inclui geralmente `*.env`, arquivos de ambientes virtuais (`.venv/`), arquivos de cache, artefatos de compilação, etc., para evitar que informações sensíveis ou irrelevantes sejam commitadas.
-* **.git/**: Diretório interno do Git contendo todo o histórico de versões e configurações do repositório. *(Você não interage manualmente com esta pasta; ela é gerenciada pelo Git.)*
-* **.python-version:** Arquivo que especifica a versão do Python utilizada no projeto (por exemplo, `3.13.x`). Esse arquivo pode ser usado por ferramentas como **pyenv** ou o gerenciador **uv** para ativar automaticamente a versão correta do Python ao entrar no diretório do projeto. Garantimos que o projeto seja executado com a versão de Python adequada.
-* **.venv/**: Diretório (virtual environment) onde as dependências Python do projeto são instaladas localmente. Este ambiente virtual é criado e gerenciado pelo gerenciador de pacotes **uv** (ou poderia ser criado por outras ferramentas). Ele contém os binários do Python e todos os pacotes instalados para o projeto, isolando-os do sistema global. Este diretório é ignorado pelo Git.
-* **Dockerfile:** Arquivo de configuração para **Docker** que define como construir uma imagem container da aplicação. Ele especifica a imagem base (tipicamente Python), copia os arquivos do projeto, instala as dependências (utilizando `pyproject.toml`/`uv.lock`) e define o comando de inicialização (normalmente rodando um servidor Uvicorn para a app FastAPI). Com o Dockerfile, é possível criar uma imagem container do backend, facilitando a implantação em ambientes padronizados.
-* **docker-compose.yaml:** Arquivo de configuração para **Docker Compose** que descreve como executar contêineres multi-serviço. Neste projeto, o `docker-compose.yaml` pode orquestrar a execução do container da aplicação (definido pelo Dockerfile) juntamente com outros serviços que o backend possa precisar, como banco de dados, cache, etc. Por exemplo, você pode configurar um serviço de PostgreSQL ou Redis aqui para desenvolvimento. Este arquivo facilita subir todo o ambiente de desenvolvimento/produção com um único comando.
-* **alembic.ini:** Arquivo de configuração para o **Alembic**, ferramenta de migração de banco de dados para Python (usada com SQLAlchemy). Define como as migrações devem rodar, onde ficam os scripts de migração e como conectar ao banco para esse fim.
-* **migrations/**: Diretório que contém os scripts de migração do banco de dados. Essa pasta é gerenciada pelo Alembic e armazena o histórico de versões do esquema do banco. Cada modificação na estrutura do banco é guardada como um script de revisão separado aqui.
-* **README.md:** Documentação do projeto (este arquivo). Contém explicações da arquitetura, instruções de uso, etc., servindo de guia para desenvolvedores que forem utilizar ou manter o template.
-* **requirements.txt:** Lista de dependências do projeto. Este arquivo é usado para instalar as dependências do projeto em ambientes que não suportam `pyproject.toml` diretamente (como alguns servidores ou ferramentas). Ele contém as versões exatas dos pacotes instalados, permitindo reprodutibilidade. No entanto, o uso preferencial deve ser o `pyproject.toml` com o gerenciador **uv**.
-* **pyproject.toml:** Arquivo de configuração do projeto Python, seguindo o padrão [PEP 621](https://peps.python.org/pep-0621/) e usado pelo gerenciador de pacotes **uv** (e também suportado por outras ferramentas de build como Poetry, etc.). Neste arquivo definimos:
+`BaseEntity` (domínio) fornece os mesmos quatro mais `deactivate()`.
 
-  * Metadados do projeto (nome, versão, descrição).
-  * Dependências do projeto (bibliotecas requeridas para rodar, como FastAPI, Pydantic etc.).
-  * Grupos de dependências opcionais, por exemplo `dev` para dependências de desenvolvimento (neste projeto, o linter Ruff está listado aqui).
-  * Arquivo de README como documento principal.
-  * Versão mínima do Python requerida.
+**O sentinela `UNSET`.** Atualizações parciais precisam distinguir "campo omitido" de "campo
+explicitamente definido como nulo". `UNSET` é essa distinção, e ela atravessa três pontos:
 
-  O `pyproject.toml` substitui os antigos `requirements.txt` e setup.py, centralizando informações do pacote/projeto. **Importante:** Não se especificam versões exatas de cada dependência aqui (geralmente apenas mínimas ou intervalo), pois o controle de versões exatas fica a cargo do arquivo de lock (`uv.lock`).
-* **uv.lock:** Arquivo de lock gerenciado automaticamente pelo **uv**. Ele lista **todas** as dependências instaladas (incluindo dependências transitivas) com versões exatas e hashes, garantindo reprodutibilidade do ambiente. Você **não deve editar** este arquivo manualmente; ele é atualizado via comandos do uv (como `uv sync` ou `uv lock`). O `uv.lock` deve ser commitado no repositório para que outros desenvolvedores tenham as mesmas versões de pacotes ao sincronizar o projeto.
+1. A entidade define o campo como `UNSET` por padrão.
+2. O mapper de atualização preenche a partir de `payload.model_fields_set`.
+3. O caso de uso mantém o valor armazenado onde o valor recebido `is UNSET`.
 
-### Diretório `app/` (Aplicação)
+Sempre compare com `is` / `is not`, nunca com `==`.
 
-O diretório `app/` contém todo o código-fonte **Python** da aplicação em si. Ele é um pacote Python (note o arquivo `__init__.py` dentro dele) e abriga tanto a instância da aplicação FastAPI quanto os sub-módulos organizados por domínio funcional. Em projetos maiores, poderíamos ter múltiplos pacotes de aplicação, mas aqui usamos um único pacote `app` para englobar tudo do backend.
+</details>
 
-Principais componentes dentro de `app/`:
+---
 
-* **`app.py`:** É o arquivo principal da aplicação FastAPI. Ele é o **entrypoint** do backend. Dentro dele, tipicamente, instanciamos a aplicação FastAPI e incluímos as rotas definidas nos diversos módulos. Por exemplo:
+## Referência da API
 
-  * Cria o objeto `app = FastAPI(...)` configurando título, versão, etc.
-  * Carrega configurações iniciais (por exemplo, definindo nível de log a partir de `core/logging.py`, ou configs de segurança).
-  * Inclui os roteadores (routers) de cada módulo, usando `app.include_router(...)`.
-  * Define event handlers de inicialização ou finalização (e.g., conectar ao banco via `core/database.py`).
+**22 rotas HTTP + 1 canal WebSocket.** Toda rota é registrada duas vezes — com e sem barra final —
+então ambas as formas funcionam; apenas a forma com barra aparece no OpenAPI.
 
-  Em resumo, o `app.py` monta a aplicação compondo as peças definidas em outros lugares. É este arquivo (mais especificamente o objeto `app` dentro dele) que será apontado ao executar o servidor.
+### Autenticação
 
-* **`__init__.py`:** Arquivo vazio (ou quase vazio) apenas para indicar que `app` é um pacote Python. Não há necessidade de colocar lógica aqui, mas você poderia usar para configurar importações globais se desejado (não é obrigatório; manter vazio para simplicidade é ok).
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/authentication/login/` | 🌐 Público | Emite o par de cookies. **Form-encoded**, não JSON. |
+| `PATCH` | `/api/v1/authentication/refresh/` | 👤 Usuário | Rotaciona o refresh token e emite um novo access token. |
+| `DELETE` | `/api/v1/authentication/logout/` | 🌐 Público¹ | Revoga a sessão e limpa os cookies. |
 
-#### Diretório `app/core/` (Configuração Central)
+### Usuário
 
-O pacote `app/core` contém módulos de configuração e utilitários fundamentais para a aplicação. São componentes de baixo nível ou transversais, que normalmente são usados por várias partes do sistema. Detalhes dos arquivos dentro de `core/`:
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/user/` | 🌐 Público | Registra uma conta. O e-mail precisa estar em `SECURITY_EMAIL_ALLOWED_DOMAINS`. |
+| `GET` | `/api/v1/user/me/` | 👤 Usuário | Perfil do usuário autenticado. |
 
-* **`core/database.py`:** Responsável pela configuração do banco de dados utilizando SQLAlchemy com suporte assíncrono (`asyncpg`). Configura o engine com a URL das `settings`, cria o `async_sessionmaker` e fornece funções utilitárias para obter sessões (Dependency Injection).
-* **`core/exception_handler.py`:** Centraliza a lógica de tratamento de exceções, garantindo respostas de erro consistentes (JSON estruturado) para toda a API.
-* **`core/logging.py`:** Configuração de logging usando `loguru`. Intercepta logs padrão do Python e formata para legibilidade e estrutura, suportando diferentes saídas.
-* **`core/middleware.py`:** Define middlewares globais para interceptar requisições e respostas (e.g., CORS, timing, rate limiting).
-* **`core/migrations.py`:** Utilitários para executar migrações de banco programaticamente, útil para ambientes de teste ou inicialização automática.
-* **`core/resources.py`:** Gerencia recursos compartilhados e constantes da aplicação.
-* **`core/security.py`:** Implementa mecanismos de segurança como hash de senhas (Argon2), geração e validação de JWT, e gerenciamento seguro de cookies (HttpOnly).
-* **`core/settings.py`:** Define o esquema de configuração usando `pydantic-settings`. Lê variáveis do `.env` e valida os tipos em tempo de execução.
+### Chaves de API
 
-#### Diretório `app/modules/` (Módulos de Funcionalidade)
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/key/` | 🔴 Admin | Cria uma chave. **Devolve o segredo uma única vez.** |
+| `GET` | `/api/v1/key/` | 🔴 Admin | Listagem paginada. |
+| `GET` | `/api/v1/key/{id}/` | 🔴 Admin | Uma chave com seu criador e atualizador. |
+| `PATCH` | `/api/v1/key/{id}/` | 🔴 Admin | Renomeia ou redescreve. Parcial. |
+| `PATCH` | `/api/v1/key/{id}/rotate/` | 🔴 Admin | Novo segredo, mesmo registro. **Devolve o segredo uma única vez.** |
+| `DELETE` | `/api/v1/key/{id}/` | 🔴 Admin | Revoga (exclusão lógica) e invalida o cache. |
 
-Este diretório contém os módulos específicos de funcionalidade da aplicação. Cada módulo (e.g., `authentication`, `user`, `example`) segue a estrutura DDD:
+### Knowledge
 
-* **Authentication (`app/modules/authentication/`):**
-  * Gerencia login, logout e refresh de tokens.
-  * Configura cookies seguros (HttpOnly) com JWT.
-  * **Presentation:** Rotas para `/auth/login`, `/auth/logout`.
-  * **Domain:** Entidades como `Token`, `UserCredentials`.
-  * **Application:** Use cases para verificar credenciais e gerar tokens.
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `POST` | `/api/v1/knowledge/` | 🟠 Manager | Cria e envia uma notificação em broadcast para os managers. |
+| `GET` | `/api/v1/knowledge/` | 🟠 Manager | Listagem paginada. |
+| `PATCH` | `/api/v1/knowledge/{id}/` | 🟠 Manager | Atualização parcial. |
+| `DELETE` | `/api/v1/knowledge/{id}/` | 🟠 Manager | Exclusão lógica. |
 
-* **User (`app/modules/user/`):**
-  * Gerencia contas de usuários (registro, perfil, listagem).
-  * **Presentation:** CRUD de usuários em `/users/`.
-  * **Domain:** Entidade User e regras de negócio.
-  * **Application:** Use cases para criação e busca de usuários.
+### Notificação
 
-Cada módulo tipicamente possui:
-* **Domain:** `entities.py`, `value_objects.py` (Lógica de negócio pura).
-* **Application:** `use_cases.py`, `interfaces.py` (Orquestração).
-* **Infrastructure:** `repositories.py`, `models.py` (Implementação de banco).
-* **Presentation:** `routers.py`, `schemas.py` (Endpoints da API)
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `GET` | `/api/v1/notification/` | 👤 Usuário | Notificações do chamador, paginadas. |
+| `PATCH` | `/api/v1/notification/{id}/` | 👤 Usuário | Marca como lida. |
 
-### Diretório `docs/` (Documentos)
+### Health, WebSocket e Example
+
+| Método | Rota | Acesso | Descrição |
+|---|---|---|---|
+| `GET` | `/health/` | 🌐 Público | Sonda de liveness. |
+| `GET` | `/` | ⚠️ | Deveria redirecionar para `/docs` — veja [Limitações conhecidas](#limitações-conhecidas). |
+| `GET` | `/api/v1/alembic-version/` | 🔴 Admin | A revisão de migração aplicada. |
+| `GET` | `/api/v1/websocket/connect/` | 🌐 Público | Rota-isca só para documentação; lança exceção imediatamente. |
+| `WS` | `/api/v1/websocket/connect/` | 👤 Usuário | O canal real. Com validação de `Origin`. |
+| `POST` | `/api/v1/example/` | 🌐 Público | Endpoint de referência mínimo. |
+
+¹ O `logout` está no tier público da allowlist, mas ainda executa `authenticate_logout`, que
+tolera estado parcialmente expirado para que uma sessão obsoleta sempre possa ser limpa.
 
-A pasta `docs/` é destinada a armazenar **documentações externas** do projeto. Aqui podem ser colocados arquivos PDF, documentos de especificação, requisitos, diagramas, notas de design, ou qualquer outro artefato de documentação que seja útil manter junto ao repositório de código, mas que não faz parte do código em si.
+<details>
+<summary><b>Envelope de resposta</b> — toda resposta tem o mesmo formato</summary>
 
-Por exemplo:
+<br/>
 
-* Documentos de requisitos do cliente em PDF/DOCX.
-* Diagramas de arquitetura ou de modelo de dados (em formatos editáveis ou imagens).
-* Documentação de pesquisa ou artigos relacionados ao domínio do projeto (ex.: papers de IA, manuais de APIs externas).
-* Qualquer documentação escrita complementar para onboard de desenvolvedores.
+O `ResponseFormattingMiddleware` envolve toda resposta JSON. Handlers devolvem um schema simples e
+nunca constroem este envelope.
 
-Manter esses arquivos em `docs/` garante que o time tenha fácil acesso e versão controlada desses materiais. Lembre-se de não colocar aqui informações sensíveis sem criptografia, já que estarão no repositório (a não ser que o repositório seja privado e isso seja controlado).
+```json
+{
+  "code": 200,
+  "method": "GET",
+  "path": "/api/v1/key/",
+  "timestamp": "2026-07-31T12:34:56Z",
+  "details": {
+    "message": "Resource retrieved successfully",
+    "data": { }
+  }
+}
+```
 
-### Diretório `scripts/` (Scripts Úteis)
+| Campo | Significado |
+|---|---|
+| `code` | Código de status HTTP |
+| `method` | Método HTTP da requisição |
+| `path` | Rota da requisição |
+| `timestamp` | ISO 8601, em UTC |
+| `details.message` | Uma constante de `ResponseMessages` — nunca um texto improvisado |
+| `details.data` | O payload do endpoint, ou `{"errors": ...}` em caso de falha |
+
+Respostas do Swagger, do ReDoc e do tipo `text/event-stream` não passam pelo envelope.
+
+</details>
 
-A pasta `scripts/` contém **scripts auxiliares** que são usados no desenvolvimento ou manutenção do projeto, mas que **não são parte do código da aplicação em execução**. Ou seja, são utilitários executados separadamente, geralmente para tarefas administrativas, de suporte ou configuração do projeto.
+<details>
+<summary><b>Paginação</b> — parâmetros e metadados</summary>
 
-No caso deste template, temos por exemplo:
+<br/>
 
-* **`scripts/directory_tree.py`:** Um script Python que provavelmente gera automaticamente a representação em árvore do diretório (similar à estrutura mostrada acima). Esse tipo de script pode ser usado para atualizar a documentação do README, por exemplo, listando novas pastas/arquivos de forma consistente.
-* (Outros scripts podem ser adicionados conforme a necessidade. Exemplo: um script para popular o banco de dados com dados de teste, ou para rodar lint/format em todos os módulos, ou para converter arquivos de dados, etc.)
+| Parâmetro | Tipo | Padrão | Restrição |
+|---|---|---|---|
+| `page` | int | `1` | ≥ 1 |
+| `limit` | int | `20` | 1–100 |
+| `sort_order` | enum | `desc` | `asc` \| `desc` |
+| `sort_by` | enum | por módulo | Precisa ser uma coluna real |
 
-Ao criar scripts aqui, mantenha organizado e documentado. Muitas vezes também adicionamos um pequeno header explicando o propósito do script e como usá-lo.
+```bash
+curl "http://localhost:8000/api/v1/key/?page=1&limit=10&sort_by=updated_at&sort_order=desc" -b cookies.txt
+```
 
-**Importante:** Os scripts dentro de `scripts/` não são executados automaticamente pelo sistema principal (não são importados em `app.py` nem chamados pelo app). Eles devem ser rodados manualmente (ex: `uv run scripts/directory_tree.py` usando o uv, ou ativando env e `python scripts/directory_tree.py`). Por isso, eles podem ter dependências adicionais ou usar código de forma isolada. Ainda assim, tente reutilizar funções do projeto se fizer sentido (por exemplo, um script de seed de banco poderia importar um repositório da aplicação para criar registros).
+Toda resposta de listagem traz um bloco `pagination`:
 
-### Diretório `test/` (Testes)
-
-A pasta `test/` contém os **testes automatizados** do projeto. Adotamos aqui uma convenção de **espelhar a estrutura de pastas do aplicativo** dentro de `test/` para facilitar a localização dos testes correspondentes a cada parte do código.
-
-Estrutura inicial:
-
-* **`test/core/`** – Pasta para testes relacionados ao core (config, database, etc). Por exemplo, teste de configuração (se variáveis estão sendo lidas corretamente) ou do logger.
-* **`test/modules/`** – Pasta para testes relacionados aos módulos de negócio. Dentro desta, replicamos cada módulo.
-
-  * `test/modules/example/` – Pasta para testes do módulo example. Dentro dela, podemos criar subpastas ou arquivos correspondentes às camadas do módulo:
-
-    * Podemos ter `test_domain.py`, `test_use_cases.py`, `test_repositories.py`, `test_routers.py`, etc., ou até subestruturas como `domain/test_entities.py` dependendo da preferência.
-    * No template, apenas os `__init__.py` estão presentes para formar a estrutura inicial. Caberá aos desenvolvedores adicionar arquivos de teste conforme implementam funcionalidades.
-
-Por exemplo, se implementamos um use case `CriarFooUseCase`, criaremos um teste unitário em `test/modules/example/test_use_cases.py` para verificar comportamentos esperados (dando um repositório falso/in-memory para o use case, por exemplo). Se implementamos um endpoint em `routers.py`, poderíamos escrever um teste de integração usando o `TestClient` do FastAPI em `test/modules/example/test_routers.py` para chamar a API e verificar respostas.
-
-**Boas práticas para os testes:**
-
-* Nomeie os arquivos de teste indicando o que estão testando. Ex.: `test_entities.py` para entidades, `test_services.py` para serviços de domínio, etc. Ou organize por funcionalidade: `test_crud_foo.py` etc.
-* Use frameworks de teste como **pytest** (padrão de fato em projetos FastAPI). No pyproject, não listamos explicitamente pytest, mas ele pode ser adicionado facilmente (ex: via `uv add --group dev pytest`).
-* Cada arquivo de teste ou função de teste deve importar as classes/funções a serem testadas da respectiva camada. Mantenha as dependências isoladas: ao testar a camada de Domínio ou Application, você pode simular a infraestrutura (usar stubs/mocks para repositórios).
-* Testes de infraestrutura (ex: do repositório real) podem exigir um banco de dados de teste. Use fixtures do pytest para preparar e limpar (por exemplo, um banco SQLite em memória, ou transações).
-* Testes de apresentação (API) podem rodar com um **TestClient** do FastAPI, talvez usando `dependency_overrides` para injetar repositórios "fakes" ou uma conexão de teste.
-
-A estrutura sugerida facilita encontrar rapidamente onde estão os testes de determinada funcionalidade. Ex: se um desenvolvedor modifica `app/modules/example/use_cases.py`, ele saberá que os testes relevantes provavelmente estão em `test/modules/example/test_use_cases.py`.
-
-Lembre-se de executar os testes regularmente (por exemplo, via `uv run -- pytest`) para garantir que tudo continue funcionando à medida que você desenvolve.
-
-## Guia de Implementação e Boas Práticas
-
-Nesta seção, consolidamos orientações de como implementar novas funcionalidades seguindo a arquitetura, e melhores práticas que o projeto deve observar. O objetivo é que a equipe tenha um guia claro do estilo e padrões a serem seguidos ao evoluir o projeto.
-
-### Separação de Responsabilidades e Camadas
-
-* **Não misture as camadas:** Cada função/classe deve pertencer claramente a uma camada. Regras de negócio ficam no domínio ou aplicação, lógica de acesso a dados só na infraestrutura, manipulação de request/response apenas na apresentação. Evite, por exemplo, fazer chamadas de banco de dados diretamente em `routers.py` (Presentation) ou usar modelos Pydantic do `schemas.py` dentro de `domain` ou `application`.
-* **Domínio puro:** Mantenha o código em `domain/` livre de dependências externas. Isso inclui não ter import de SQLAlchemy, FastAPI, requests/httpx, etc. Se precisar de algo externo (ex: um cálculo estatístico complexo), tudo bem usar bibliotecas de cálculo, mas não código específico de infraestrutura.
-* **Orquestre na Aplicação:** A camada de Application (`use_cases`) é a coordenadora. Ela chama o que precisa nas outras camadas. Por exemplo, para atender uma solicitação: o router chama o use case, que talvez chame um serviço de domínio para regra complexa, consulta um repositório para obter dados, aplica lógica, e pede ao repositório salvar algo. A aplicação conhece tanto o domínio (entidades, serviços) quanto as interfaces de repositório. Mas ela **não sabe nem decide** *como* o repositório faz seu trabalho. Assim, conseguimos trocar implementações sem alterar a lógica de alto nível.
-* **Infraestrutura pode crescer em detalhes sem afetar negócio:** Se decidirmos trocar de banco de dados (por exemplo, de PostgreSQL para MongoDB) ou de provedor de IA, as mudanças devem ficar confinadas em `infrastructure/`, idealmente sem modificar nada em `domain/` ou `application/`, exceto talvez pequenos ajustes se o contrato mudar. Isso reforça a inversão de dependência.
-* **Apresentação simples e fina:** O código em `routers.py` deve ser mínimo, delegando rapidamente para casos de uso. Ele deve lidar com aspectos de HTTP (códigos de status, autenticação via dependências, detalhes de rota), mas não conter lógica de negócio. Se você perceber regras de negócio sendo implementadas no corpo de uma função de rota, provavelmente esse código pertence a um use case ou serviço de domínio.
-
-Em suma, sempre pense: “Essa lógica pertence a qual camada?”. Se for formatação de resposta ou parsing de request -> Presentation; se for validação/regra de negócio -> Domain/Application; se for acesso a dados ou chamadas externas -> Infrastructure.
-
-### Nomenclatura de Arquivos e Código
-
-Manter uma nomenclatura consistente facilita a colaboração. Aqui estão algumas convenções adotadas no template:
-
-* **Nomes de pastas e arquivos:** em *letras minúsculas*, usando underscores (\_) para separar palavras se necessário. Exemplos: `value_objects.py`, `my_module/`. Evite espaços ou caracteres especiais. O nome do módulo (pasta dentro de `modules/`) deve refletir o contexto de negócio em singular, preferencialmente curto e direto (ex: `user`, `order`, `payment`). No exemplo usamos `example` como nome genérico.
-* **Arquivos `__init__.py`:** geralmente vazios, apenas para declarar o pacote. Às vezes podem ser usados para facilitar importações (e.g., importar algo e expor via `__all__`), mas faça isso com moderação para não confundir.
-* **Classes e Interfaces:** usar **PascalCase** (CamelCase iniciando em maiúscula). Exemplos: `User`, `OrderRepository`, `ConsultarSaldoUseCase`. Para interfaces abstratas, pode-se prefixar com I (ex: `IUserRepository`), ou sufixar com Interface, ou usar nome descritivo simples. O importante é deixar claro pelo contexto ou docstring que é abstrata.
-* **Funções e métodos:** usar **snake\_case** (minúsculas\_com\_underscore). Nomes devem ser verbos ou descrever ação/resultado. Ex: `calcular_total()`, `execute()` (em use case), `obter_por_id()`.
-* **Variáveis e atributos:** também em snake\_case. Evite abreviações obscuras; seja descritivo (ex: `quantidade_itens` ao invés de `qtd` se possível).
-* **Schemas Pydantic:** também são classes, então PascalCase. Geralmente nomeados com sufixo que indica a finalidade: `XxxCreate`, `XxxUpdate`, `XxxOut` etc.
-* **Use Cases:** se implementados como classes, muitas vezes se usa o sufixo `UseCase` para clareza (ex: `FooUseCase`). Alternativamente, alguns preferem nomear classes de caso de uso como verbos sem sufixo (ex: `CriarFoo`), mas aqui adotamos o sufixo para não confundir com entidades ou serviços.
-* **Arquivos de teste:** nomeie começando com `test_` e de forma paralela ao código que testam. Ex: `test_entities.py` para `entities.py`, ou `test_routers.py` para `routers.py`. Dentro dos testes, use nomes de funções expressivos (ex: `def test_deve_calcular_total_corretamente():`).
-* **Constantes:** letras maiúsculas com underscores. Ex: `PI = 3.14`, ou `MAX_TENTATIVAS = 5`.
-* **Nomes de módulos internos:** As subpastas seguem os nomes `application, domain, infrastructure, presentation` conforme convenção do template. Mantenha esses nomes caso expanda o projeto, para consistência entre módulos.
-* **Prefixos de abstração vs implementação:** Se você criar múltiplas implementações de uma interface, por exemplo diferentes repositórios (um SQL, um NoSQL), pode refletir no nome: `UserRepositorySQL`, `UserRepositoryMongo` ambos implementando `UserRepositoryInterface`. No entanto, se só houver uma implementação, nome simples `UserRepository` já é suficiente.
-
-Seguindo essas convenções, o código do projeto permanece **legível** e os colaboradores entendem rapidamente pelo nome do arquivo/classe qual é seu papel.
-
-### Inversão de Dependência e Injeção de Dependências
-
-A inversão de dependência é um princípio fundamental nesta arquitetura:
-
-* **Abstrações no núcleo, implementações na periferia:** Defina interfaces para funcionalidades externas (persistência, envio de email, etc.) na camada de Application ou Domain, e implemente-as na camada de Infrastructure. Assim o núcleo depende apenas de abstrações, não de detalhes concretos.
-* **FastAPI Depends para injeção:** Aproveite o sistema de dependências do FastAPI para injetar implementações concretas nas rotas. Em vez de instanciar um repositório dentro do endpoint, use `Depends(get_repo)` para que o FastAPI cuide disso. Isso desacopla o endpoint da forma de obtenção do repo (que pode mudar, ou ser substituída em testes).
-* **Construtores recebem dependências:** Nas classes de use case ou serviços, injete as dependências via construtor (ou método setter/factory). Evite resolver dependências globais dentro da lógica (ex: não chame diretamente `FooRepository()` dentro do use case; passe o repo como parâmetro). Isso torna mais fácil testar em isolamento (você passa um dummy repo).
-* **Nunca o contrário:** A camada de Infraestrutura pode importar coisas de Domain (por exemplo, entidade para construir um objeto), mas a camada de Domain **nunca** deve importar nada de Infraestrutura. Se você ver um import da infraestrutura em `domain/` ou `application/`, algo está errado. Verifique se a dependência precisa ser invertida por meio de uma interface.
-* **Exemplo prático:** no módulo example, `application/interfaces.py` define `FooRepositoryInterface`. `infrastructure/repositories.py` implementa `FooRepository` que herda essa interface. O use case `application/use_cases.py` aceita um `FooRepositoryInterface`. Na rota, fazemos `repo = Depends(get_foo_repository)` e passamos para o use case. Assim, o use case não sabe qual classe exata de repo está sendo usada, só conhece a interface. Poderíamos passar um repositório de teste facilmente.
-* **Composição raiz em app.py:** O arquivo principal `app.py` pode ser considerado o ponto de composição final da aplicação – onde juntamos tudo. Por exemplo, se precisássemos criar instâncias globais de algo ou configurar injecções globais, seria o lugar. Mas no geral, mantemos as coisas simples: cada request monta suas dependências.
-
-Respeitar a inversão de dependências torna o sistema mais robusto a mudanças e facilita reuso. Por exemplo, poderíamos extrair a camada de domínio + aplicação para uma biblioteca separada e trocar a interface (em vez de FastAPI, usar CLI) e a lógica central permaneceria funcionando – isso é um bom teste mental para ver se as dependências estão corretamente direcionadas.
-
-### Padrões de Código e Qualidade
-
-* **Segue PEP8:** Todo o código Python deve aderir ao PEP 8 (guia de estilo oficial). Isto inclui indentação de 4 espaços, linhas até \~79 caracteres (100 máx idealmente), nomes em snake\_case para funções/variáveis, etc. Use ferramentas automáticas quando possível.
-* **Ruff (Linter):** Este projeto já inclui o [Ruff](https://github.com/astral-sh/ruff) como dependência de desenvolvimento (veja no `pyproject.toml`). O Ruff é um linter extremamente rápido que ajuda a detectar problemas de estilo e possíveis bugs. Configurei o básico no `pyproject.toml` para integrá-lo. É recomendado integrar o Ruff ao seu editor ou rodá-lo antes de commits (`uv run -- ruff .` ou se configurado via pre-commit).
-* **Type hints:** FastAPI se baseia fortemente em type hints para validação e docs. Use **anotações de tipo** em todo o código, não apenas em endpoints. Isso melhora a legibilidade e ajuda ferramentas como mypy (caso decidamos usar análise estática). Por exemplo, declare tipos de retorno e tipos de parâmetros para funções e métodos. Ex: `def salvar(self, foo: Foo) -> Foo:`.
-* **Docstrings e comentários:** Documente classes e funções públicas com docstrings claras, explicando o propósito, parâmetros e retorno. Em casos de lógica complexa, use comentários internos para explicar porções específicas. Lembre-se que outro desenvolvedor (ou você no futuro) vai ler e agradecer esses esclarecimentos.
-* **Pequenas funções, pouca repetição:** Siga o princípio *DRY* (Don't Repeat Yourself). Se perceber código duplicado, considere refatorar para uma função utilitária ou serviço. Mantenha funções/métodos curtos e coesos – se um método está fazendo “demais”, talvez deva ser quebrado em partes.
-* **Tratamento de erros:** Tenha uma estratégia clara de exceptions. Por exemplo, crie exceptions customizadas no domínio (ex: `UsuarioNaoEncontradoError` em `domain/exceptions.py` se quiser), e capture-as na camada de apresentação para retornar códigos HTTP adequados. Evite deixar exceções não tratadas escaparem até a apresentação, pois isso resultará em erro 500 genérico. Preferível capturar e converter para um HTTPException ou retornar um resultado amigável.
-* **Logs úteis:** Use o logger configurado (`logging.getLogger(__name__)`) nos pontos chave: logs de início/fim de operações, warnings para situações anômalas, errors para exceções capturadas. Mantenha os logs informativos mas não verborrágicos. Isso ajuda no debugging e monitoramento em produção.
-* **Carregamento de configurações:** Utilize o `core/config.py` e `.env` ao invés de constantes espalhadas pelo código. Assim, alterar um parâmetro (por exemplo, tempo de timeout de uma chamada externa) requer mudar apenas no .env e possivelmente reiniciar o serviço, sem tocar em código. Além disso, facilita configurar diferente em dev/staging/prod.
-* **Refatore com frequência:** À medida que funcionalidades são adicionadas, mantenha a estrutura organizada. Se um módulo crescer muito, talvez sub-divida em submódulos. Por exemplo, um módulo `user` pode ter sub-itens (se fosse o caso) como `user/domain/entities.py` etc., e se houver muitas entidades poderia até ter uma pasta `entities/` com vários arquivos. O importante é que a arquitetura sirva ao projeto; ela pode evoluir. Mas quaisquer mudanças na estrutura devem ser documentadas e comunicadas para que todos sigam o mesmo padrão.
-
-### Estruturação dos Testes
-
-* **Teste unitário vs integração:** Tenha testes unitários para funções isoladas (ex: métodos de entidades, funções de serviços de domínio, lógica interna de use cases sem tocar DB) e testes de integração para garantir que as peças funcionam juntas (ex: teste de repositório acessando DB de teste real, ou teste de rota completo fazendo request).
-* **Fixtures para preparar cenário:** Use recursos do **pytest** como fixtures para criar objetos necessários. Por exemplo, uma fixture que retorna um repositório fake populado com alguns dados, para testar um use case. Ou uma fixture que inicia um banco em memória e cria tabelas para testar repositórios.
-* **Testes no CI/CD:** Se este template for usado em projetos reais, integraremos execução dos testes nos pipelines de CI. Portanto, assegure que os testes não dependam de estados locais (use por exemplo banco de dados de teste definido via variável de ambiente, e limpa entre testes).
-* **Cobertura de testes:** Busque cobrir as principais funcionalidades críticas. Em especial, os casos de uso (Application) e serviços do domínio merecem muitos testes pois carregam a lógica de negócio. Repositórios podem ter testes para garantir que as consultas estão corretas. Endpoints podem ter pelo menos um teste feliz e alguns de erro.
-* **Testes determinísticos:** Tests devem passar ou falhar de forma consistente. Se usar elementos aleatórios (por exemplo, talvez algum componente de IA?), fixe seeds ou use mocks para controlar resultados, de modo que o teste seja repetível.
-* **Rodando os testes:** Como mencionado, podemos rodar via `pytest`. Se usar uv, um comando prático: `uv run -- pytest -q` (o `-q` é opcional, só para quiet output). Isso garante que o venv certo e dependências estão ativados. Lembre de ter o .env configurado se seu código de config precisar, ou durante testes você pode usar `.env.test` se configurarmos multi-ambientes.
-
-Ao mantermos uma boa disciplina de testes, ganhamos confiança para evoluir o projeto sem medo de quebrar funcionalidades existentes, pois os testes darão um alerta cedo em caso de regressões.
-
-## Dependências do Projeto
-
-O projeto utiliza uma stack moderna de bibliotecas Python para garantir performance, segurança e manutenibilidade. As principais dependências são:
-
-*   **FastAPI** (`fastapi[standard]>=0.135.1`): Framework web de alta performance para construção de APIs.
-*   **Alembic** (`alembic>=1.18.4`): Ferramenta de migração de banco de dados para SQLAlchemy.
-*   **SQLAlchemy** (`sqlalchemy>=2.0.48`): Toolkit SQL e ORM (Object-Relational Mapping).
-*   **AsyncPG** (`asyncpg>=0.31.0`): Driver de banco de dados PostgreSQL rápido para asyncio.
-*   **Psycopg** (`psycopg>=3.3.3`): Adaptador PostgreSQL para Python.
-*   **Pydantic** (`pydantic>=2.12.5`): Validação de dados e gestão de settings usando type hints.
-*   **Pydantic Settings** (`pydantic-settings>=2.13.1`): Gestão de variáveis de ambiente.
-*   **Cryptography** (`cryptography>=46.0.5`): Biblioteca para receitas e primitivas criptográficas.
-*   **JWCrypto** (`jwcrypto>=1.5.6`): Implementação dos padrões JSON Web Token (JWT).
-*   **PWDLib** (`pwdlib[argon2]>=0.3.0`): Hash moderno de senhas (Argon2).
-*   **Loguru** (`loguru>=0.7.3`): Logging simplificado e poderoso para Python.
-*   **Orjson** (`orjson>=3.11.7`): Biblioteca JSON rápida e correta para Python.
-*   **Hypercorn** (`hypercorn>=0.18.0`): Servidor ASGI para rodar a aplicação.
-*   **Py-Automapper** (`py-automapper>=2.2.0`): Biblioteca de mapeamento de objetos.
-*   **Stackprinter** (`stackprinter>=0.2.12`): Formatação amigável de stack traces de erro.
-
-Dependências de desenvolvimento:
-*   **Ruff**: Linter e formatador Python extremamente rápido.
-
-## Configuração do Ambiente e Execução
-
-A seguir, instruções para configurar o ambiente de desenvolvimento e executar a aplicação template. Vamos cobrir desde instalação de dependências com o uv até opções de rodar via Docker.
-
-### Gerenciador de Pacotes UV
-
-Este projeto utiliza o **uv** (da Astral) como gerenciador de pacotes e ambientes Python. O uv é uma ferramenta moderna que combina funcionalidades de pip, virtualenv, pip-tools e outras, facilitando muito a gestão do projeto. Algumas características do uv:
-
-* Cria automaticamente um ambiente virtual isolado (`.venv`) para o projeto, usando a versão de Python especificada em `.python-version`.
-* Gerencia dependências através do `pyproject.toml` (para especificação geral) e `uv.lock` (para versões fixas), garantindo reprodutibilidade.
-* Possui comandos simples para adicionar/remover pacotes (`uv add`, `uv remove`), sincronizar ambiente (`uv sync`), rodar scripts/comandos no venv (`uv run`), etc.
-* É incrivelmente rápido na instalação de pacotes comparado ao pip tradicional.
-
-**Leia a documentação oficial do uv para mais detalhes sobre a [instalação](https://docs.astral.sh/uv/getting-started/installation/).**
-
-Uma vez com uv disponível, certifique-se de estar no diretório do projeto (`fastapi-clean-architecture-ddd-template/`) ao rodar comandos uv, pois ele se baseia no pyproject.toml local.
-
-### Configurando Variáveis de Ambiente (.env)
-
-Antes de rodar a aplicação, configure suas variáveis de ambiente:
-
-1. Faça uma cópia do arquivo `.env.example` e nomeie como `.env` na raiz do projeto:
-
-   ```bash
-   cp .env.example .env
-   ```
-2. Abra o arquivo `.env` em um editor. Por padrão, ele pode listar variáveis como exemplo (e provavelmente estão vazias ou com valores de placeholder). Preencha cada variável conforme o contexto:
-
-   * Exemplo: `APP_NAME="FastAPI Clean Architecture DDD Template"`, `DEBUG=true` ou `false`, `DATABASE_URL="postgresql://usuario:senha@localhost:5432/banco"` etc.
-   * Se a aplicação integra algum serviço de IA externo, insira chaves de API ou endpoints necessários aqui também (ex: `OPENAI_API_KEY=...`), assim o código em `core/config.py` poderá capturá-los.
-   * **Não coloque aspas** ao redor de valores no .env (a menos que queira incluir espaços). Pydantic Settings consegue interpretar booleanos (`true/false`) e números, mas pode ler tudo como string se não especificado – então a conversão geralmente é feita pelo BaseSettings com base no type hint.
-
-3. Verifique se o `.env` está listado no `.gitignore` (deveria estar por padrão). Nunca commite esse arquivo com credenciais reais.
-
-Ao rodar a aplicação via uvicorn/uv, o uv carregará automaticamente esse `.env`? Na verdade, o carregamento é feito pelo nosso código `Settings(BaseSettings)`, que conhece o env\_file. Mas para segurança, o uv também pode carregar .env se configurado.
-
-Em resumo, não pule esta etapa. Sem um `.env` configurado (ou variáveis exportadas no sistema), sua aplicação pode usar valores padrão ou falhar ao iniciar dependendo de como o `Settings` foi implementado.
-
-### Instalação de Dependências
-
-Com o uv instalado e .env configurado, prossiga para instalar as dependências do projeto no ambiente virtual.
-
-* **Sincronizar o ambiente (instalar pacotes):**
-
-  ```bash
-  uv sync
-  ```
-
-  Este comando fará o uv ler o `pyproject.toml` e o `uv.lock`. Se o lockfile estiver presente e compatível, ele instalará exatamente as versões listadas nele dentro de `.venv`. Caso você tenha adicionado alguma dependência nova no pyproject e não rodou lock ainda, `uv sync` irá criar/atualizar o lockfile também. Em geral, após clonar o projeto, usar `uv sync` garantirá que você tenha o mesmo ambiente que os demais.
-
-  *Observação:* A primeira execução criará o diretório `.venv` e baixará os pacotes, isso pode levar alguns segundos. Nas próximas vezes, será mais rápido se nada mudou.
-
-* **Ativando o virtualenv (opcional):** O uv permite rodar comandos sem ativar manualmente (`uv run` faz isso automaticamente). Mas se quiser entrar no venv para executar Python diretamente, faça:
-
-  * Em Linux/macOS:
-
-    ```bash
-    source .venv/bin/activate
-    ```
-  * Em Windows (PowerShell):
-
-    ```powershell
-    .venv\Scripts\Activate.ps1
-    ```
-
-  Após ativado, você verá o prefixo `(.venv)` no terminal. Então pode usar `python` ou `pytest` diretamente. Lembre-se de `deactivate` para sair depois. Novamente, isso não é estritamente necessário se usar `uv run` sempre, mas é útil para familiaridade.
-
-* **Verificando a instalação:** Você pode verificar se tudo está ok rodando:
-
-  ```bash
-  uv run python -V
-  ```
-
-  Isso deve mostrar a versão do Python (de acordo com .python-version) e confirmar que o comando rodou dentro do venv. Ou:
-
-  ```bash
-  uv run python -c "import fastapi; print(fastapi.__version__)"
-  ```
-
-  para imprimir a versão do FastAPI instalada, por exemplo, confirmando que ele está acessível.
-
-### Executando a Aplicação
-
-Com o ambiente configurado, vamos rodar a aplicação FastAPI localmente. Há várias maneiras:
-
-* **Usando uvicorn diretamente:**
-  Se o virtualenv estiver ativado, simplesmente execute:
-
-  ```bash
-  uvicorn app.app:app --reload
-  ```
-
-  Isto inicia o servidor Uvicorn apontando para o objeto `app` dentro do módulo `app.app` (nosso FastAPI instance). A flag `--reload` habilita recarga automática em caso de mudanças no código (ótimo para desenvolvimento).
-
-  Sem o venv ativado, você pode chamar via uv:
-
-  ```bash
-  uv run -- uvicorn app.app:app --reload
-  ```
-
-  O `uv run --` garante que o uvicorn seja executado dentro do ambiente isolado, mesmo que você esteja fora do venv. Note que estamos rodando uvicorn em modo de desenvolvimento (porta padrão 8000). Acesse [http://localhost:8000/docs](http://localhost:8000/docs) para ver a documentação Swagger UI gerada automaticamente pelos endpoints (no momento, apenas os do módulo example).
-
-* **Usando FastAPI-CLI:**
-  Como incluímos fastapi-cli, outra opção é:
-
-  ```bash
-  uv run -- python -m fastapi app.app:app --reload
-  ```
-
-  Isso efetivamente faz o mesmo que uvicorn (fastapi CLI usa uvicorn por baixo dos panos), não havendo grande diferença. Use a abordagem que preferir.
-
-Após o servidor rodando, você deve ver no console logs do Uvicorn indicando que o app está servindo na porta 8000. A documentação interativa (Swagger) estará disponível em `/docs` e a interface Redoc em `/redoc`. Inicialmente, com o módulo example vazio, a API pode não ter endpoints úteis listados; à medida que você adiciona rotas, elas aparecerão lá.
-
-**Endpoints do módulo example:** Se você adicionar algumas rotas no `example/routers.py` (por exemplo, um GET de status), elas aparecerão. O prefixo pode ser configurado no router (ex.: `router = APIRouter(prefix="/foo", tags=["Foo"])` vai colocar todas rotas sob `/foo`). Certifique-se que `app.py` incluiu o router (por exemplo, `app.include_router(example_router, prefix="/api/v1")` se quiser um prefixo global).
-
-### Utilizando Docker (Opcional)
-
-Para quem prefere ou precisa rodar em container (ou preparar para produção), este projeto fornece suporte a Docker:
-
-1.  **Construir e Rodar**:
-    ```sh
-    docker-compose up --build
-    ```
-    Isso iniciará a API e quaisquer dependências (Banco de Dados, etc.).
-
-2.  **Acessar**:
-    A API deve estar disponível em `http://localhost:8000` (ou na porta configurada).
-
-### Utilizando Makefile
-
-O projeto inclui um `Makefile` para simplificar tarefas comuns de desenvolvimento. Execute estes comandos na raiz do projeto:
-
-*   `make start`: Inicia a aplicação e dependências (DB, etc.) usando Docker Compose (rebuild se necessário).
-*   `make start-silent`: Igual ao `start`, mas roda containers em background (modo detached).
-*   `make view-processes`: Lista containers Docker em execução.
-*   `make delete`: Para os módulos e remove containers, redes e volumes.
-*   `make dependencies-up`: Inicia apenas os serviços de banco de dados (Postgres, Admin).
-*   `make dependencies-up-silent`: Inicia serviços de banco em background.
-*   `make dependencies-down`: Para e remove os serviços de banco de dados.
-
-### Migrações de Banco de Dados
-
-Alterações no esquema do banco são gerenciadas pelo **Alembic**.
-
-1.  **Criar nova migração:**
-    Ao modificar modelos SQLAlchemy (ex: em `infrastructure/models.py`), gere um script de migração:
-    ```bash
-    alembic revision --autogenerate -m "Descrição da mudança"
-    ```
-    Isso cria um novo arquivo em `migrations/versions/`.
-
-2.  **Aplicar migrações:**
-    Para atualizar o banco para a versão mais recente:
-    ```bash
-    alembic upgrade head
-    ```
-
-3.  **Reverter (Downgrade):**
-    Para desfazer a última migração:
-    ```bash
-    alembic downgrade -1
-    ```
-
-### Autenticação e Gerenciamento de Cookies
-
-A aplicação implementa autenticação segura usando **JWT (JSON Web Tokens)** e **Cookies HttpOnly**.
-
-*   **Fluxo de Login:**
-    *   Endpoint: `POST /api/v1/auth/login`
-    *   Retorna tokens de acesso e refresh definidos como **Cookies HttpOnly**.
-    *   Isso previne acesso via JavaScript aos tokens, mitigando ataques XSS.
-
-*   **Recursos de Segurança:**
-    *   **Hash de Senha:** Usa **Argon2** via `pwdlib` para segurança robusta.
-    *   **Rotação de Token:** Refresh tokens permitem obter novos access tokens sem re-login.
-    *   **Criptografia:** Dados sensíveis são encriptados usando a biblioteca `cryptography`.
-
-### Exemplos e Boas Práticas
-
-Exemplos de como implementar componentes padrão seguindo a arquitetura.
-
-#### 1. Implementação de Repositório (Infrastructure)
-Use `SQLAlchemy` com sessões `async`.
+```json
+{
+  "total": 87,
+  "page": 2,
+  "limit": 20,
+  "total_pages": 5,
+  "has_next": true,
+  "has_prev": true
+}
+```
+
+O total é calculado na **mesma consulta** da página, usando uma window function
+(`func.count(...).over()`) — nunca há um segundo `COUNT(*)`.
+
+> A camada HTTP fala `limit`; a camada de domínio fala `per_page`. Os mappers traduzem na
+> fronteira.
+
+</details>
+
+<details>
+<summary><b>Catálogo de erros</b> — códigos de status e quando ocorrem</summary>
+
+<br/>
+
+| Status | `ResponseMessages` | Quando |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | Uma regra de domínio falhou — lançada como `DomainException` |
+| `400` | `BAD_REQUEST` | Uma atualização não trouxe nenhuma mudança efetiva |
+| `401` | `UNAUTHORIZED_ERROR` | Credencial ausente, inválida, revogada ou expirada |
+| `403` | `AUTHORIZATION_ERROR` | Autenticado mas sem permissão, ou rota fora do tier do chamador |
+| `404` | `RESOURCE_NOT_FOUND` | Registro inexistente ou excluído logicamente |
+| `405` | `METHOD_NOT_ALLOWED` | Método não suportado naquela rota |
+| `409` | `CONFLICT` | Colisão de chave natural, por exemplo um nome duplicado |
+| `422` | `VALIDATION_ERROR` | O Pydantic rejeitou o payload antes do handler rodar |
+| `500` | `INTERNAL_ERROR` | Falha inesperada — a exceção genérica do módulo |
+| `502` | `BAD_GATEWAY` | Uma dependência externa falhou |
+| `504` | `GATEWAY_TIMEOUT` | Uma dependência externa estourou o tempo limite |
+
+`400` e `422` são realmente diferentes: `422` é o FastAPI rejeitando o formato da requisição antes
+do seu código rodar; `400` é uma regra de negócio falhando dentro dele.
+
+Todo corpo de erro carrega `details.data.errors` — um texto para uma falha, ou uma lista quando
+várias foram coletadas de uma vez (uma entidade reporta **todas** as suas falhas de validação em
+uma única resposta, não apenas a primeira).
+
+</details>
+
+<details>
+<summary><b>Canal WebSocket</b> — conexão e formato das mensagens</summary>
+
+<br/>
+
+**Endpoint:** `ws://localhost:8000/api/v1/websocket/connect/`
+
+A autenticação usa os mesmos cookies HTTP-only da API REST — o navegador os envia automaticamente
+no upgrade. O cabeçalho `Origin` é validado contra `SECURITY_ALLOW_ORIGINS`, porque o
+`CORSMiddleware` **não** cobre o handshake do WebSocket.
+
+As mensagens fluem apenas **servidor → cliente**. Frames do cliente são aceitos e descartados, o
+que os torna úteis como keepalive.
+
+```json
+{
+  "message_type": "notification",
+  "body": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "created_at": "2026-01-15T10:30:00Z",
+    "notification_type": "knowledge_created",
+    "title": "Knowledge base created",
+    "body": "The knowledge base 'ML Fundamentals' was created successfully.",
+    "redirect_url": "https://app.example.com/knowledge/550e8400"
+  }
+}
+```
+
+Broadcasts aplicam uma cascata por papel: `ADMIN` alcança admins, `MANAGER` alcança managers e
+admins, `USER` alcança todos.
+
+Um cliente de teste em navegador e a especificação AsyncAPI completa são servidos em `/devtools/`
+em desenvolvimento — veja `scripts/websocket_test.html` e `scripts/asyncapi.yaml`.
+
+</details>
+
+---
+
+## Segurança
+
+### Fluxo de autenticação
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Cliente
+    participant API as API
+    participant DB as PostgreSQL
+    participant R as Redis
+
+    rect rgba(69,123,157,0.12)
+    Note over C,R: Login
+    C->>API: POST /authentication/login/ (form-encoded)
+    API->>DB: verifica a senha (Argon2)
+    API->>API: monta o JWT aninhado<br/>JWS Ed25519 → JWE ECDH-ES + A256GCM
+    API->>DB: guarda os fingerprints HMAC de cada jti
+    API->>R: coloca a autenticação em cache
+    API-->>C: Set-Cookie: access_token, refresh_token, device_id
+    end
+
+    rect rgba(45,106,79,0.12)
+    Note over C,R: Requisição autenticada
+    C->>API: GET /user/me/ (cookies enviados automaticamente)
+    API->>API: decifra o JWE → verifica o JWS
+    API->>R: consulta pelo fingerprint do token
+    alt cache ausente
+        API->>DB: carrega a autenticação e compara o fingerprint
+    end
+    API->>API: valida o tier de papel + a allowlist de rotas
+    API-->>C: 200
+    end
+
+    rect rgba(180,120,40,0.12)
+    Note over C,R: Refresh
+    C->>API: PATCH /authentication/refresh/
+    API->>DB: rotaciona o jti, mantendo previous_hashed_jti por um instante
+    API->>R: invalida as duas dimensões em cache
+    API-->>C: novo par de cookies
+    end
+
+    rect rgba(200,60,60,0.12)
+    Note over C,R: Logout
+    C->>API: DELETE /authentication/logout/
+    API->>DB: revoga os tokens de refresh e de acesso
+    API->>R: apaga por access token E por refresh token
+    API-->>C: cookies limpos
+    end
+```
+
+### Por que JWTs aninhados
+
+Um JWT apenas assinado é legível por qualquer um que o possua. Este template assina **e** cifra:
+
+| Camada | Algoritmo | Finalidade |
+|---|---|---|
+| **JWS** interno | Ed25519 | Prova autenticidade e integridade |
+| **JWE** externo | ECDH-ES + A256GCM | Mantém as claims opacas para o cliente |
+
+Os tokens trafegam em **cookies HTTP-only**, não em cabeçalhos `Authorization`, então o JavaScript
+não consegue lê-los. Um fingerprint HMAC-SHA256 do `jti` de cada token é guardado no banco — o
+token em si nunca é — o que torna os tokens revogáveis e permite detectar adulteração.
+
+Os pares de chaves são carregados de arquivos PEM em `secrets/keys/` e gerados na primeira
+inicialização quando `JWT_AUTO_GENERATE_KEYS` é verdadeiro.
+
+> [!CAUTION]
+> `secrets/keys/*.pem` está no `.gitignore` por um motivo. Gere chaves novas para cada ambiente e
+> nunca as versione. Rotacionar uma chave exige reiniciar o processo — elas são carregadas em
+> cache na inicialização.
+
+### Papéis e os dois portões
+
+```mermaid
+flowchart LR
+    REQ([Requisição]) --> DEP{dependência<br/>authenticate_*}
+    DEP -->|papel insuficiente| F1[403]
+    DEP -->|papel ok| ALLOW{rota está na<br/>allowlist do papel?}
+    ALLOW -->|não| F2[403]
+    ALLOW -->|sim| OK([Handler])
+
+    style F1 fill:#c1121f,color:#fff
+    style F2 fill:#c1121f,color:#fff
+    style OK fill:#2d6a4f,color:#fff
+```
+
+Os dois portões precisam concordar. Isso é intencional: é fácil esquecer a dependência em um
+handler novo, e é fácil esquecer a allowlist em uma rota nova. Exigir os dois faz com que um
+descuido falhe fechado.
+
+| Tier | Configuração | Alcança |
+|---|---|---|
+| 🌐 Público | `SECURITY_NO_AUTH_PATHS` | Todos, inclusive anônimos |
+| 👤 Usuário | `SECURITY_USER_ALLOWED_PATHS` | Público + usuário |
+| 🟠 Manager | `SECURITY_MANAGER_ALLOWED_PATHS` | Usuário + manager |
+| 🔴 Admin | `SECURITY_ADMIN_ALLOWED_PATHS` | Manager + admin |
+| 🔑 Chave de API | `SECURITY_API_KEY_ALLOWED_PATHS` | Tier independente — atualmente vazio |
+
+Os tiers são cumulativos, então cada rota é declarada **uma vez**, no tier mais baixo que deve
+alcançá-la. As duas formas de barra precisam ser registradas:
 
 ```python
-# app/modules/authentication/infrastructure/repositories.py
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.modules.authentication.domain.entities import User
-from app.modules.authentication.infrastructure.models import UserModel
-
-class UserRepository:
-    def __init__(self, session: AsyncSession):
-        self.session = session
-
-    async def get_by_email(self, email: str) -> User | None:
-        result = await self.session.execute(select(UserModel).where(UserModel.email == email))
-        model = result.scalars().first()
-        return model.to_entity() if model else None
-
-    async def save(self, user: User) -> User:
-        model = UserModel.from_entity(user)
-        self.session.add(model)
-        await self.session.commit()
-        await self.session.refresh(model)
-        return model.to_entity()
+(_path_rule("/api/v1/key/", "POST"),)
+(_path_rule("/api/v1/key", "POST"),)
 ```
 
-#### 2. Caso de Uso (Application)
-Orquestra lógica dedomínio e repositórios.
+> [!WARNING]
+> Esquecer a segunda forma é a causa mais comum de "funciona no Swagger, dá 403 no cliente".
+
+### Chaves de API
+
+Totalmente implementadas — o mecanismo funciona, mas `SECURITY_API_KEY_ALLOWED_PATHS` está vazio,
+então nenhum endpoint aceita autenticação por chave hoje. Adicione rotas ali para habilitá-la.
+
+```mermaid
+flowchart LR
+    GEN["generate_api_key()"] --> RAW["Chave em texto puro<br/><code>iap_xxxxx…</code>"]
+    RAW --> RESP["Devolvida uma vez<br/>na resposta"]
+    RAW --> HMAC["HMAC-SHA256"]
+    HMAC --> STORE[("hashed_key<br/>armazenada")]
+    RAW -.->|nunca armazenada| STORE
+
+    style RESP fill:#40916c,color:#fff
+    style STORE fill:#1d3557,color:#fff
+```
+
+O registro guarda um `prefix` e um `last_four` não secretos para exibição, além do hash para
+verificação (comparado com `hmac.compare_digest`, em tempo constante). A chave em texto puro é
+devolvida **uma vez**, na criação e na rotação, e não pode ser recuperada depois.
+
+---
+
+## Dados
+
+### Relacionamentos entre entidades
+
+```mermaid
+erDiagram
+    USERS ||--o{ AUTHENTICATIONS : "possui sessoes"
+    USERS ||--o{ NOTIFICATIONS : "recebe"
+    USERS ||--o{ KEYS : "created_by / updated_by"
+    USERS ||--o{ KNOWLEDGES : "created_by / updated_by"
+    AUTHENTICATIONS ||--|| REFRESH_TOKENS : "1:1 cascade"
+    REFRESH_TOKENS ||--|| ACCESS_TOKENS : "1:1 cascade"
+
+    USERS {
+        uuid id PK
+        string first_name
+        string last_name
+        string preferred_name
+        enum gender
+        date birthdate
+        string email UK
+        string phone
+        string hashed_password
+        enum role
+        bool is_active
+    }
+    AUTHENTICATIONS {
+        uuid id PK
+        uuid user_id FK
+        string ip_address
+        string device
+        string user_agent
+        string origin
+        bool blacklisted
+    }
+    REFRESH_TOKENS {
+        uuid id PK
+        uuid authentication_id FK
+        string hashed_jti
+        string previous_hashed_jti
+        datetime expires_at
+        bool revoked
+    }
+    ACCESS_TOKENS {
+        uuid id PK
+        uuid refresh_id FK
+        string hashed_jti
+        string previous_hashed_jti
+        enum permission
+        datetime expires_at
+        bool revoked
+    }
+    KEYS {
+        uuid id PK
+        string name
+        string description
+        string prefix
+        string last_four
+        string hashed_key UK
+        datetime expires_at
+        datetime last_used_at
+        uuid created_by FK
+        uuid updated_by FK
+    }
+    KNOWLEDGES {
+        uuid id PK
+        string name
+        string description
+        uuid created_by FK
+        uuid updated_by FK
+    }
+    NOTIFICATIONS {
+        uuid id PK
+        uuid user_id FK
+        enum notification_type
+        string title
+        string body
+        string redirect_url
+        jsonb metadata
+        string originated_from_broadcast
+        bool is_read
+        datetime read_at
+    }
+```
+
+Excluir um usuário faz **cascata** para suas autenticações e notificações, mas é **restrito** por
+qualquer chave ou base de conhecimento que ele tenha criado — trilhas de auditoria não podem
+perder seu autor.
+
+Os nomes das tabelas recebem o prefixo de `APPLICATION_TABLE_PREFIX`, então com o valor padrão a
+tabela de usuários é `fastapi_clean_architecture_ddd_template_users`.
+
+### Convenções
+
+| Conceito | Regra | Exemplo |
+|---|---|---|
+| Nome da tabela | `{prefix}_{plural_snake}` | `..._keys` |
+| Tipo enum | `{snake}_enum` | `role_enum` |
+| Restrição de unicidade | `uq_{plural}_{cols}` | `uq_keys_hashed_key` |
+| Índice | `ix_{plural}_{cols}` | `ix_keys_prefix` |
+| Restrição de verificação | `ck_{plural}_{rule}` | `ck_keys_single_owner` |
+| Exclusão lógica | `is_active = false` | nunca um `DELETE` físico |
+
+> [!NOTE]
+> O PostgreSQL guarda os **nomes dos membros** dos enums em maiúsculas (`ADMIN`,
+> `KNOWLEDGE_CREATED`), e não os valores Python em minúsculas. Isso importa sempre que você
+> escrever SQL bruto ou uma migração de dados.
+
+### Migrações
+
+`migrations/versions/` vem **vazio** — a sua primeira migração cria todo o schema do seu projeto.
+A aplicação executa `alembic upgrade head` na inicialização, então uma stack nova se migra
+sozinha.
+
+```bash
+make migration m="create_my_entity_model"   # autogeração
+make migrate                                 # aplicação
+```
+
+> [!IMPORTANT]
+> Um modelo novo precisa ser importado em `migrations/env.py` e adicionado à lista `_ = [...]`. A
+> autogeração só enxerga modelos registrados — e pior, ela emite um `drop_table` para uma tabela
+> ativa cujo modelo ela não consegue ver.
+
+---
+
+## Cache
+
+O Postgres é a fonte da verdade. O Redis é um acelerador que você precisa poder perder a qualquer
+momento.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UC as Caso de uso
+    participant R as Redis
+    participant DB as PostgreSQL
+
+    rect rgba(45,106,79,0.12)
+    Note over UC,DB: Leitura via cache
+    UC->>R: get(chave)
+    alt encontrado
+        R-->>UC: entidade
+    else ausente, ou Redis indisponível
+        R-->>UC: None
+        UC->>DB: SELECT
+        DB-->>UC: entidade
+        UC->>R: insert (melhor esforço)
+    end
+    end
+
+    rect rgba(200,60,60,0.12)
+    Note over UC,DB: Invalidação — tombstone primeiro
+    UC->>DB: UPDATE / revogação
+    UC->>R: SET tombstone (com TTL)
+    UC->>R: DEL entrada
+    Note right of R: Um leitor lento que não achou no cache<br/>consulta o tombstone antes de escrever,<br/>e por isso não ressuscita dados revogados.
+    end
+```
+
+### A corrida que o tombstone fecha
+
+Sem ele, esta intercalação ressuscita dados revogados silenciosamente:
+
+```text
+leitor:  cache ausente ──► lê do banco ────────────► grava o snapshot no cache
+escritor:                    └─► revoga no banco ──► apaga a chave do cache
+```
+
+A escrita do leitor chega *depois* da exclusão do escritor, e uma credencial revogada continua
+autenticando até seu TTL expirar. O protocolo fecha isso em três passos: o `delete` grava o
+tombstone **antes** de remover a entrada, o `insert` verifica o tombstone **antes** de escrever, e
+os tombstones duram mais que a maior janela plausível entre leitura e escrita.
+
+### Namespace e versionamento
 
 ```python
-# app/modules/authentication/application/use_cases.py
-
-class AuthenticateUserUseCase:
-    def __init__(self, user_repository: UserRepository, password_service: PasswordService):
-        self.user_repository = user_repository
-        self.password_service = password_service
-
-    async def execute(self, command: LoginCommand) -> AuthTokens:
-        user = await self.user_repository.get_by_email(command.email)
-        if not user or not self.password_service.verify(command.password, user.password_hash):
-            raise InvalidCredentialsException()
-        
-        return self.token_service.generate_tokens(user)
+REDIS_NAMESPACE = f"{REDIS_KEY_PREFIX}:v{REDIS_CACHE_VERSION}"
 ```
 
-#### 3. Router (Presentation)
-Lida com requisições HTTP e injeção de dependência.
+Toda chave pende desse namespace. **Incremente `REDIS_CACHE_VERSION` sempre que mudar o que é
+serializado** — a geração anterior fica inalcançável e expira sozinha por TTL. Essa é a resposta
+correta para uma mudança de formato do payload, não limpar o cache nem adicionar lógica de
+migração ao desserializador.
 
-```python
-# app/modules/authentication/presentation/routers.py
+| Configuração | Padrão | Finalidade |
+|---|---|---|
+| `REDIS_KEY_PREFIX` | slug do projeto | Raiz do namespace |
+| `REDIS_CACHE_VERSION` | `1` | Contador de geração |
+| `REDIS_DEFAULT_TTL_SECONDS` | `3600` | TTL padrão |
+| `REDIS_SESSION_TTL_SECONDS` | `1800` | Entradas de autenticação |
+| `REDIS_TOMBSTONE_TTL_SECONDS` | `30` | Por quanto tempo a repopulação fica suprimida |
+| `REDIS_FLUSH_ON_STARTUP` | `True` | Limpa o namespace na inicialização |
+| `REDIS_MAX_CONNECTIONS` | `50` | Tamanho do pool |
 
-@router.post("/login", response_model=TokenSchema)
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    use_case: AuthenticateUserUseCase = Depends(get_authenticate_use_case)
-):
-    tokens = await use_case.execute(LoginCommand(email=form_data.username, password=form_data.password))
-    response = JSONResponse(content={"message": "Login realizado com sucesso"})
-    set_auth_cookies(response, tokens)
-    return response
+**O caso de uso decide a política; a classe de cache apenas executa.** Quando ler via cache, quando
+invalidar e qual TTL usar são decisões de negócio, então vivem em um único lugar revisável.
+
+---
+
+## Desenvolvimento
+
+### Alvos do Make
+
+| Comando | O que faz |
+|---|---|
+| `make dev` | `uvicorn app.app:app --reload` |
+| `make start` | Stack Docker completa, com build e acompanhando os logs |
+| `make start-silent` | Stack Docker completa, em segundo plano |
+| `make stop` | Para a stack |
+| `make delete` | Para e **remove os volumes** — destrói os dados |
+| `make dependencies-up` | Só Postgres, Redis e as interfaces administrativas, acompanhando os logs |
+| `make dependencies-up-silent` | O mesmo, em segundo plano |
+| `make dependencies-down` | Para esses serviços |
+| `make logs` | Acompanha os logs do Compose |
+| `make view-processes` | `docker ps -a` |
+| `make migrate` | `alembic upgrade head` |
+| `make migration m="..."` | `alembic revision --autogenerate` |
+| `make lint` | `ruff check .` |
+| `make format` | `ruff format .` |
+| `make help` | Lista todos os alvos |
+
+### Serviços Docker
+
+| Serviço | Imagem | Porta no host | Porta no contêiner |
+|---|---|---|---|
+| `api` | construída pelo `Dockerfile` | `${APPLICATION_PORT}` (8000) | 3000 |
+| `database` | `postgres:17-alpine` | `${POSTGRESQL_PORT}` (5432) | 5432 |
+| `database-admin` | `dpage/pgadmin4:9.2` | `${PGADMIN_PORT}` (8080) | 80 |
+| `cache` | `redis:8.6-alpine` | `${REDIS_PORT}` (6379) | 6379 |
+| `cache-admin` | `redis/redisinsight:3.4.2` | `${REDISINSIGHT_PORT}` (8081) | 5540 |
+
+O `api` espera os healthchecks de `database` e `cache` antes de iniciar. O Redis roda com
+persistência AOF e política de despejo LRU.
+
+### Scripts
+
+| Script | Finalidade |
+|---|---|
+| `scripts/create_module.py` | Gerador interativo do esqueleto de módulo em quatro camadas |
+| `scripts/generate_secret.py` | Um segredo hexadecimal de 32 bytes para as configurações de fingerprint HMAC |
+| `scripts/generate_fernet.py` | Uma chave Fernet |
+| `scripts/directory_tree.py` | Escreve a árvore do projeto em `scripts/directory_tree.txt` |
+| `scripts/websocket_test.html` | Cliente WebSocket em navegador — servido em `/devtools/` em dev |
+| `scripts/asyncapi.yaml` | Especificação AsyncAPI 2.6 do canal WebSocket |
+
+### Logging
+
+JSON estruturado no **stderr** via loguru, serializado com `orjson`. Em desenvolvimento a saída é
+indentada e colorida; o `stackprinter` renderiza tracebacks detalhados.
+
+```json
+{
+  "timestamp": "2026-07-31T12:34:56.789012+00:00",
+  "level": "INFO",
+  "message": "Creating api key 'CI pipeline' in database.",
+  "source": "repositories.py:create:31"
+}
 ```
 
-## Considerações Finais
+| Nível | Usado para |
+|---|---|
+| `DEBUG` | Entrada e saída de casos de uso; acertos e ausências de cache |
+| `INFO` | Chamadas de repositório, decisões de negócio e todo lançamento de exceção de regra |
+| `WARNING` | Operações de melhor esforço que falharam sem consequência, como um despacho WebSocket |
+| `ERROR` | Falhas inesperadas, sempre via `logger.opt(exception=e).error(...)` |
+| `CRITICAL` | Reservado |
 
-Este template fornece um ponto de partida robusto. Lembre-se de:
-*   Manter seu arquivo `.env` seguro.
-*   Sempre usar o `Makefile` para operações padrão.
-*   Escrever testes para novos módulos.
-*   Seguir estritamente a separação de camadas.
+O `LogRequestMiddleware` anexa um id de requisição (de tamanho `LOGS_REQUEST_ID_LENGTH`) e
+cabeçalhos de tempo a cada requisição.
+
+> [!NOTE]
+> `LOGS_PATH` está atualmente sem uso — nenhum destino em arquivo é registrado. Os logs vão só para
+> o stderr, que é o padrão correto para contêineres. Adicione um `logger.add(...)` em
+> `app/core/logging.py` se quiser arquivos.
+
+### Testes
+
+`test/` espelha `app/modules/`, com um pacote por módulo. A política é **unitária primeiro**:
+conduza os casos de uso por fakes em memória dos seus Protocols, construa entidades diretamente e
+não toque em banco, Redis ou rede reais.
+
+```text
+test/
+├── core/
+└── modules/
+    ├── authentication/  example/  health/  key/
+    ├── knowledge/  notifications/  shared/  user/  websocket/
+```
+
+> [!NOTE]
+> O pytest **ainda não é uma dependência** e os pacotes de teste são esqueletos vazios. Instale-o
+> com `uv add --dev pytest pytest-asyncio` e depois adicione `[tool.pytest.ini_options]` com
+> `asyncio_mode = "auto"` e `testpaths = ["test"]` ao `pyproject.toml`.
+
+---
+
+## Configuração
+
+Cada configuração é um campo tipado de `Settings` em `app/core/settings.py`, carregado do `.env`
+pelo pydantic-settings. Acesse pelo singleton `settings` — nunca por `os.environ`.
+
+> [!IMPORTANT]
+> A maioria dos campos é **obrigatória**. Um valor vazio no `.env` gera um `ValidationError`
+> nomeando a chave na inicialização, e isso é proposital: um valor padrão silencioso que difere
+> entre ambientes é bem mais difícil de depurar do que uma falha na subida.
+
+<details>
+<summary><b>Referência completa de configuração</b> — todas as 83 chaves</summary>
+
+<br/>
+
+#### Aplicação
+
+| Chave | Exemplo                                       | Descrição |
+|---|-----------------------------------------------|---|
+| `APPLICATION_TITLE` | `FastAPI Clean Architecture and DDD Template` | Título no OpenAPI |
+| `APPLICATION_SUMMARY` | *(texto)*                                     | Resumo no OpenAPI |
+| `APPLICATION_DESCRIPTION` | *(markdown)*                                  | Descrição no OpenAPI |
+| `APPLICATION_VERSION` | `3.0.0`                                       | Versão no OpenAPI |
+| `APPLICATION_CONTACT_NAME` | `Bruno Tanabe`                                | Contato no OpenAPI |
+| `APPLICATION_CONTACT_URL` | *(url)*                                       | Contato no OpenAPI |
+| `APPLICATION_CONTACT_EMAIL` | *(e-mail)*                                    | Contato no OpenAPI |
+| `APPLICATION_CONTACT_PHONE` | *(telefone)*                                  | Contato no OpenAPI |
+| `APPLICATION_PORT` | `8000`                                        | Porta no host |
+| `APPLICATION_ENVIRONMENT` | `development`                                 | `development` \| `homolog` \| `production` |
+| `APPLICATION_CONNECT_TIMEOUT_SECONDS` | `30`                                          | Tempo limite de conexão |
+| `APPLICATION_URL` | `http://localhost:8000`                       | URL base pública |
+| `APPLICATION_TABLE_PREFIX` | slug do projeto                               | Prefixo em todo nome de tabela |
+
+#### Chave de API
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `API_KEY_PREFIX` | `iap` | Prefixo visível nas chaves geradas |
+| `API_KEY_HASH_FINGERPRINT` | *(hex de 32 bytes)* | Segredo HMAC — `scripts/generate_secret.py` |
+| `API_KEY_ENTROPY_BYTES` | `32` | Aleatoriedade por chave gerada |
+
+#### Esquemas de autenticação
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `AUTH_BEARER_TOKEN_SCHEME_NAME` | `BearerAuth` | Nome do esquema de segurança no OpenAPI |
+| `AUTH_BEARER_TOKEN_SCHEME_DESCRIPTION` | *(texto)* | Descrição no OpenAPI |
+| `AUTH_API_KEY_NAME` | `X-API-Key` | Cabeçalho que carrega a chave de API |
+| `AUTH_API_KEY_SCHEME_NAME` | `ApiKeyAuth` | Nome do esquema de segurança no OpenAPI |
+| `AUTH_API_KEY_DESCRIPTION` | *(texto)* | Descrição no OpenAPI |
+
+#### Cookies
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `COOKIES_MAX_AGE_SECONDS` | `7776000` | Tempo de vida do cookie (90 dias) |
+| `COOKIES_TOKEN_TYPE_KEY` | `token_type` | Nome do cookie de tipo de token |
+| `COOKIES_ACCESS_TOKEN_KEY` | `access_token` | Nome do cookie de access token |
+| `COOKIES_ACCESS_TOKEN_PATH` | `/api/v1/` | Escopo do cookie de access token |
+| `COOKIES_REFRESH_TOKEN_KEY` | `refresh_token` | Nome do cookie de refresh token |
+| `COOKIES_REFRESH_TOKEN_PATH` | `/api/v1/authentication/refresh/` | Escopo do cookie de refresh — enviado só para o endpoint de refresh |
+| `COOKIES_DEVICE_KEY` | `device_id` | Nome do cookie de dispositivo |
+| `COOKIES_DOMAIN` | `localhost` | Domínio do cookie |
+| `COOKIES_SAME_SITE` | `none` | `lax` \| `strict` \| `none` |
+
+#### JWT
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `JWT_ISSUER` | `http://localhost:8000` | Claim `iss` |
+| `JWT_AUDIENCE` | `api://…` | Claim `aud` |
+| `JWT_SIGNING_KEY_PASSWORD` | *(segredo)* | Senha da chave privada de assinatura |
+| `JWT_ENCRYPTION_KEY_PASSWORD` | *(segredo)* | Senha da chave privada de cifragem |
+| `JWT_SIGNING_PRIVATE_KEY_PATH` | `secrets/keys/signing-private.pem` | Chave privada Ed25519 |
+| `JWT_SIGNING_PUBLIC_KEY_PATH` | `secrets/keys/signing-public.pem` | Chave pública Ed25519 |
+| `JWT_ENCRYPTION_PRIVATE_KEY_PATH` | `secrets/keys/encryption-private.pem` | Chave privada X25519 |
+| `JWT_ENCRYPTION_PUBLIC_KEY_PATH` | `secrets/keys/encryption-public.pem` | Chave pública X25519 |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Vida útil do access token |
+| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | `90` | Vida útil do refresh token |
+| `JWT_HASH_FINGERPRINT` | *(hex de 32 bytes)* | Segredo HMAC para os fingerprints de `jti` |
+| `JWT_AUTO_GENERATE_KEYS` | `True` | Gera pares de chaves ausentes na primeira inicialização |
+| `JWT_KEYS_DIR` | `secrets/keys` | Onde ficam os pares de chaves |
+
+#### Logs
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `LOGS_NAME` | slug do projeto | Nome do logger |
+| `LOGS_PATH` | `logs` | Reservado — nenhum destino em arquivo é registrado ainda |
+| `LOGS_LEVEL` | `INFO` | Nível mínimo |
+| `LOGS_REQUEST_ID_LENGTH` | `8` | Tamanho do id de requisição |
+| `LOGS_PYGMENTS_STYLE` | `monokai` | Tema de destaque em desenvolvimento |
+
+#### PostgreSQL
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `POSTGRESQL_DATABASE` | slug do projeto | Nome do banco |
+| `POSTGRESQL_USERNAME` | *(usuário)* | Usuário do banco |
+| `POSTGRESQL_PASSWORD` | *(segredo)* | Senha do banco |
+| `POSTGRESQL_HOST` | `localhost` | Use `database` de dentro do Compose |
+| `POSTGRESQL_PORT` | `5432` | Porta do banco |
+
+#### pgAdmin *(somente Compose)*
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `PGADMIN_EMAIL` | *(e-mail)* | Login do pgAdmin |
+| `PGADMIN_PASSWORD` | *(segredo)* | Senha do pgAdmin |
+| `PGADMIN_PORT` | `8080` | Porta no host |
+
+#### Redis
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `REDIS_HOST` | `localhost` | Use `cache` de dentro do Compose |
+| `REDIS_PORT` | `6379` | Porta do Redis |
+| `REDIS_PASSWORD` | *(segredo)* | Senha do Redis |
+| `REDIS_DB` | `0` | Índice do banco |
+| `REDIS_USERNAME` | `default` | Usuário da ACL |
+| `REDIS_SSL` | `False` | Usa `rediss://` quando verdadeiro |
+| `REDIS_CONNECTION_TIMEOUT_SECONDS` | `10` | Tempo limite de conexão |
+| `REDIS_SOCKET_TIMEOUT_SECONDS` | `5` | Tempo limite de socket |
+| `REDIS_DEFAULT_TTL_SECONDS` | `3600` | TTL padrão das entradas |
+| `REDIS_SESSION_TTL_SECONDS` | `1800` | TTL das entradas de autenticação |
+| `REDIS_TOMBSTONE_TTL_SECONDS` | `30` | Tempo de vida do tombstone |
+| `REDIS_KEY_PREFIX` | slug do projeto | Raiz do namespace |
+| `REDIS_CACHE_VERSION` | `1` | Incremente ao mudar o formato do payload |
+| `REDIS_FLUSH_ON_STARTUP` | `True` | Limpa o namespace na inicialização |
+| `REDIS_MAX_CONNECTIONS` | `50` | Tamanho do pool |
+| `REDIS_DATABASES` | `16` | *(somente Compose)* |
+| `REDIS_MAX_MEMORY` | `256mb` | *(somente Compose)* |
+| `REDIS_MAX_MEMORY_POLICY` | `allkeys-lru` | *(somente Compose)* |
+
+#### RedisInsight *(somente Compose)*
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `REDISINSIGHT_PORT` | `8081` | Porta no host |
+| `REDISINSIGHT_REDIS_ALIAS` | *(nome)* | Apelido da conexão |
+
+#### ngrok
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `NGROK_AUTH_TOKEN` | *(token)* | Opcional — sobe um túnel em `development` |
+
+#### Segurança
+
+| Chave | Exemplo | Descrição |
+|---|---|---|
+| `SECURITY_ALLOW_ORIGINS` | `["http://localhost:3000"]` | Allowlist de origem para CORS **e** WebSocket |
+| `SECURITY_ALLOW_HEADERS` | `["Accept","Authorization",…]` | Cabeçalhos do CORS |
+| `SECURITY_ALLOW_METHODS` | `["GET","POST",…]` | Métodos do CORS |
+| `SECURITY_EMAIL_ALLOWED_DOMAINS` | `["admin.com"]` | Allowlist de domínios no cadastro; `[]` desativa |
+| `SECURITY_ADMIN_EMAIL` | *(e-mail)* | Conta de admin criada automaticamente |
+| `SECURITY_ADMIN_PASSWORD` | *(segredo)* | Senha do admin criado automaticamente |
+
+</details>
+
+<details>
+<summary><b>Configurações calculadas</b> — derivadas, não configuradas</summary>
+
+<br/>
+
+Dezesseis valores são calculados a partir das chaves acima e não devem ser definidos diretamente:
+
+| Propriedade | Derivada de |
+|---|---|
+| `APPLICATION_ENVIRONMENT_DEBUG` | `APPLICATION_ENVIRONMENT != production` |
+| `COOKIES_ACCESS_TOKEN_MAX_AGE` | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES × 60` |
+| `COOKIES_REFRESH_TOKEN_MAX_AGE` | `JWT_REFRESH_TOKEN_EXPIRE_DAYS × 86400` |
+| `POSTGRESQL_DATABASE_URL` / `_ASYNC_DATABASE_URL` | O grupo `POSTGRESQL_*` |
+| `REDIS_URL` | O grupo de conexão `REDIS_*` |
+| `REDIS_NAMESPACE` | `REDIS_KEY_PREFIX` + `REDIS_CACHE_VERSION` |
+| `JWT_SIGNING_*_KEY`, `JWT_ENCRYPTION_*_KEY` | Os arquivos PEM em disco |
+| `SECURITY_*_ALLOWED_PATHS` | As regras de rota de cada tier |
+
+Defina a expiração do JWT, não a idade do cookie — a idade do cookie acompanha.
+
+</details>
+
+---
+
+## Limitações conhecidas
+
+Documentadas de propósito. São compromissos conscientes ou trabalho em andamento — não defeitos a
+serem "limpos".
+
+| Área | Estado atual | Impacto |
+|---|---|---|
+| **Fan-out do WebSocket** | O `ConnectionManager` guarda as conexões em um dicionário em memória no `app.state` | A entrega funciona apenas dentro de um processo. Implantações multi-worker precisam de pub/sub no Redis. |
+| **Cache do `knowledge`** | `IKnowledgeCache` declara apenas `insert`, e o caso de uso nunca o chama | A estrutura existe, mas está inativa. Siga o `key` para completá-la. |
+| **Tier de chave de API** | `SECURITY_API_KEY_ALLOWED_PATHS` é uma tupla vazia | A autenticação por chave está implementada, mas nenhum endpoint a aceita ainda. |
+| **Testes** | Os pacotes existem, o pytest não é dependência | Rode `uv add --dev pytest pytest-asyncio` para começar. |
+| **Log em arquivo** | `LOGS_PATH` está configurado, mas nenhum destino em arquivo é registrado | Os logs vão só para o stderr — correto para contêineres, surpreendente se você espera arquivos. |
+| **`GET /`** | Usa `no_authentication`, mas `/` não está em `SECURITY_NO_AUTH_PATHS` | O redirecionamento da documentação retorna **403**. Adicione `_path_rule("/", "GET")` a esse tier para habilitá-lo. |
+
+---
+
+## Contribuindo
+
+1. Faça um fork e crie um branch a partir de `development`.
+2. Siga as convenções — [Arquitetura](#arquitetura) documenta todos os padrões de camada, os três
+   formatos de tratamento de erro e as regras de nomenclatura.
+3. Rode `make lint && make format` antes de commitar.
+4. Use [Conventional Commits](https://www.conventionalcommits.org/):
+   `feat(key): add rotation endpoint`.
+5. Abra um pull request descrevendo o que mudou e por quê.
+
+É novo no código? Leia `app/modules/key/` do início ao fim. Ele exercita todas as camadas e todos
+os padrões em um único módulo.
+
+---
+
+## Licença
+
+Distribuído sob a [Licença MIT](LICENSE). © 2025 Bruno Tanabe.
+
+<div align="center">
+
+**Feito por [Bruno Tanabe](https://github.com/BrunoTanabe)**
+
+Se este template te economizou tempo, considere deixar uma ⭐
+
+</div>

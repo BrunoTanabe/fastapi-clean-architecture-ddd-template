@@ -1,17 +1,10 @@
 from http import HTTPStatus
 
-from fastapi import Security
-
-from app.core.security import (
-    no_authentication,
-    authenticate_refresh,
-    authenticate_logout,
-)
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
     LogoutResponse,
 )
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse
 
 # MODULE DOCS
@@ -227,7 +220,6 @@ login_docs = {
         "Authenticate a user and initiate a login session. "
         "Authentication tokens are returned via HttpOnly cookies."
     ),
-    "dependencies": [Security(no_authentication)],
     "response_description": (
         "Successful authentication. Access/refresh tokens are set in cookies and "
         "the JSON body returns a minimal confirmation message."
@@ -271,7 +263,6 @@ refresh_docs = {
         "security dependency, then rotates and sets new `token_type`, `access_token`, "
         "and `refresh_token` cookies."
     ),
-    "dependencies": [Security(authenticate_refresh)],
     "response_description": (
         "Successful token refresh. New access/refresh tokens and token type are set "
         "in cookies, and the JSON body returns a refresh confirmation message."
@@ -324,7 +315,6 @@ logout_docs = {
         "Invalidates the authenticated session and removes authentication cookies. "
         "The endpoint requires a valid authenticated user."
     ),
-    "dependencies": [Security(authenticate_logout)],
     "response_description": (
         "Successful logout. Authentication cookies are removed and the JSON body "
         "returns a logout confirmation message."

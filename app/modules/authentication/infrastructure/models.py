@@ -1,50 +1,55 @@
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import (
+    UUID as SQUID,
+)
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
     String,
     Text,
-    DateTime,
-    func,
     UniqueConstraint,
-    ForeignKey,
-    UUID as SQUID,
-    Index,
-    Boolean,
+    func,
+)
+from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.settings import settings
-from app.modules.shared.application.enums import Role
 from app.modules.shared.application.utils import BRASILIA_TZ
+from app.modules.shared.domain.enums import Role
 from app.modules.shared.infrastructure.models import Base
 
 if TYPE_CHECKING:
     from app.modules.user.infrastructure.models import UserModel
 
 
-class SessionModel(Base):
-    __tablename__ = f"{settings.APPLICATION_TABLE_PREFIX}_sessions"
-    __mapper_args__ = {"eager_defaults": True}
-
+class AuthenticationModel(Base):
+    __tablename__ = f"{settings.APPLICATION_TABLE_PREFIX}_authentications"
     __table_args__ = (
         UniqueConstraint(
             "user_id",
             "user_agent",
             "device",
-            name="uq_sessions_user_id_user_agent_device",
+            name="uq_authentications_user_id_user_agent_device",
         ),
         Index(
-            "ix_sessions_user_id_user_agent_device", "user_id", "user_agent", "device"
+            "ix_authentications_user_id_user_agent_device",
+            "user_id",
+            "user_agent",
+            "device",
         ),
     )
 
     id: Mapped[UUID] = mapped_column(
         SQUID(as_uuid=True),
         name="id",
-        comment="Unique identifier of the session",
+        comment="Unique identifier of the authentication",
         primary_key=True,
         server_default=func.gen_random_uuid(),
     )
@@ -55,14 +60,14 @@ class SessionModel(Base):
             ondelete="CASCADE",
         ),
         name="user_id",
-        comment="Identifier of the user who owns the session",
+        comment="Identifier of the user who owns the authentication",
         nullable=False,
     )
 
     ip_address: Mapped[str] = mapped_column(
         String(45),
         name="ip_address",
-        comment="IP address used when the session was created",
+        comment="IP address used when the authentication was created",
         nullable=False,
     )
 
@@ -77,7 +82,7 @@ class SessionModel(Base):
         nullable=False,
     )
 
-    accept_language: Mapped[Optional[str]] = mapped_column(
+    accept_language: Mapped[str | None] = mapped_column(
         String(255),
         name="accept_language",
         comment="Accept-Language header value of the client",
@@ -85,7 +90,7 @@ class SessionModel(Base):
         default=None,
     )
 
-    accept_encoding: Mapped[Optional[str]] = mapped_column(
+    accept_encoding: Mapped[str | None] = mapped_column(
         String(255),
         name="accept-encoding",
         comment="Accept-Encoding header value of the client",
@@ -100,14 +105,15 @@ class SessionModel(Base):
         nullable=False,
     )
 
-    referrer: Mapped[Optional[str]] = mapped_column(
+    referrer: Mapped[str | None] = mapped_column(
         String(255),
         name="referrer",
         comment="Referrer header value of the client",
-        nullable=False,
+        nullable=True,
+        default=None,
     )
 
-    location: Mapped[Optional[str]] = mapped_column(
+    location: Mapped[str | None] = mapped_column(
         String(255),
         name="location",
         comment="Approximate geographic location of the client",
@@ -118,7 +124,7 @@ class SessionModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         name="created_at",
-        comment="Timestamp when the session was created",
+        comment="Timestamp when the authentication was created",
         default=lambda: datetime.now(BRASILIA_TZ),
         server_default=func.now(),
         nullable=False,
@@ -127,7 +133,7 @@ class SessionModel(Base):
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         name="last_update_at",
-        comment="Last time the session was updated",
+        comment="Last time the authentication was updated",
         default=lambda: datetime.now(BRASILIA_TZ),
         server_default=func.now(),
         onupdate=func.now(),
@@ -137,21 +143,23 @@ class SessionModel(Base):
     blacklisted: Mapped[bool] = mapped_column(
         Boolean,
         name="blacklisted",
-        comment="Indicates whether the session is blacklisted",
+        comment="Indicates whether the authentication is blacklisted",
         nullable=False,
         default=False,
     )
 
     user: Mapped["UserModel"] = relationship(
         "UserModel",
-        back_populates="sessions",
+        back_populates="authentications",
+        lazy="noload",
     )
 
-    refresh_token: Mapped["RefreshTokenModel"] = relationship(
-        back_populates="session",
+    refresh_token: Mapped["RefreshTokenModel | None"] = relationship(
+        back_populates="authentication",
         uselist=False,
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="noload",
     )
 
 
@@ -159,16 +167,15 @@ class RefreshTokenModel(Base):
     __tablename__ = f"{settings.APPLICATION_TABLE_PREFIX}_refresh_tokens"
     __table_args__ = (
         UniqueConstraint(
-            "session_id",
-            name="uq_refresh_tokens_session_id",
+            "authentication_id",
+            name="uq_refresh_tokens_authentication_id",
         ),
         Index(
-            "ix_hashed_jti_revoked",
+            "ix_refresh_tokens_hashed_jti_revoked",
             "hashed_jti",
             "revoked",
         ),
     )
-    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[UUID] = mapped_column(
         SQUID(as_uuid=True),
@@ -178,13 +185,13 @@ class RefreshTokenModel(Base):
         server_default=func.gen_random_uuid(),
     )
 
-    session_id: Mapped[UUID] = mapped_column(
+    authentication_id: Mapped[UUID] = mapped_column(
         ForeignKey(
-            f"{settings.APPLICATION_TABLE_PREFIX}_sessions.id",
+            f"{settings.APPLICATION_TABLE_PREFIX}_authentications.id",
             ondelete="CASCADE",
         ),
-        name="session_id",
-        comment="Session associated with this refresh token",
+        name="authentication_id",
+        comment="Authentication associated with this refresh token",
         nullable=False,
     )
 
@@ -196,7 +203,7 @@ class RefreshTokenModel(Base):
         unique=True,
     )
 
-    previous_hashed_jti: Mapped[Optional[str]] = mapped_column(
+    previous_hashed_jti: Mapped[str | None] = mapped_column(
         Text,
         name="previous_hashed_jti",
         comment="Hashed JTI (JWT ID) value of the previous refresh token",
@@ -237,7 +244,7 @@ class RefreshTokenModel(Base):
         default=False,
     )
 
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         name="revoked_at",
         comment="Timestamp when the refresh token was revoked",
@@ -245,16 +252,18 @@ class RefreshTokenModel(Base):
         default=None,
     )
 
-    session: Mapped["SessionModel"] = relationship(
+    authentication: Mapped["AuthenticationModel"] = relationship(
         back_populates="refresh_token",
         uselist=False,
+        lazy="noload",
     )
 
-    access_token: Mapped["AccessTokenModel"] = relationship(
+    access_token: Mapped["AccessTokenModel | None"] = relationship(
         back_populates="refresh_token",
         uselist=False,
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="noload",
     )
 
 
@@ -266,12 +275,11 @@ class AccessTokenModel(Base):
             name="uq_access_tokens_refresh_id",
         ),
         Index(
-            "ix_hashed_jti_revoked",
+            "ix_access_tokens_hashed_jti_revoked",
             "hashed_jti",
             "revoked",
         ),
     )
-    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[UUID] = mapped_column(
         SQUID(as_uuid=True),
@@ -299,7 +307,7 @@ class AccessTokenModel(Base):
         unique=True,
     )
 
-    previous_hashed_jti: Mapped[Optional[str]] = mapped_column(
+    previous_hashed_jti: Mapped[str | None] = mapped_column(
         Text,
         name="previous_hashed_jti",
         comment="Hashed JTI (JWT ID) value of the previous access token",
@@ -340,7 +348,7 @@ class AccessTokenModel(Base):
         default=False,
     )
 
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         name="revoked_at",
         comment="Timestamp when the refresh token was revoked",
@@ -351,4 +359,5 @@ class AccessTokenModel(Base):
     refresh_token: Mapped["RefreshTokenModel"] = relationship(
         back_populates="access_token",
         uselist=False,
+        lazy="noload",
     )

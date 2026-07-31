@@ -5,7 +5,7 @@ import stackprinter
 from loguru import logger
 from pygments import highlight
 from pygments.formatters.terminal256 import Terminal256Formatter
-from pygments.lexers.data import JsonLexer
+from pygments.lexers import JsonLexer
 
 from app.core.settings import settings
 
@@ -34,4 +34,4 @@ def serialize(record: dict) -> str:
 
 def init_loguru() -> None:
     logger.remove()
-    logger.add(lambda message: print(serialize(message.record), file=sys.stderr))  # type: ignore
+    logger.add(lambda message: print(serialize(message.record), file=sys.stderr))

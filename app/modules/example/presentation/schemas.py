@@ -2,6 +2,8 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.modules.shared.domain.enums import ResponseMessages
+
 
 # REQUEST
 class ExampleRequest(BaseModel):
@@ -73,13 +75,15 @@ class ExampleRequest(BaseModel):
 
 # RESPONSE
 class ExampleResponse(BaseModel):
-    message: str = Field(
-        title="Response message (Required)",
-        description="Message to be returned in the response, greeting the individual.",
+    message: str = ResponseMessages.SUCCESS.value
+
+    greeting: str = Field(
+        title="Greeting",
+        description="Greeting message for the individual.",
         min_length=3,
         examples=["Hello, John Doe!", "Hello, Jane Smith!"],
         json_schema_extra={
-            "example": "Hello John Doe!",
+            "example": "Hello, John Doe!",
             "readOnly": True,
         },
     )
@@ -93,16 +97,19 @@ class ExampleResponse(BaseModel):
         validate_assignment=True,
         validate_return=True,
         json_schema_extra={
-            "description": "Example schema for the response of analyzing infractions.",
+            "description": "Example schema for the response of the hello endpoint.",
             "example": {
-                "message": "Hello, John Doe!",
+                "message": ResponseMessages.SUCCESS.value,
+                "greeting": "Hello, John Doe!",
             },
             "examples": [
                 {
-                    "message": "Hello, John Doe!",
+                    "message": ResponseMessages.SUCCESS.value,
+                    "greeting": "Hello, John Doe!",
                 },
                 {
-                    "message": "Hello, Jane Smith!",
+                    "message": ResponseMessages.SUCCESS.value,
+                    "greeting": "Hello, Jane Smith!",
                 },
             ],
         },

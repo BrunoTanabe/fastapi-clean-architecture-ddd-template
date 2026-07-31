@@ -1,14 +1,13 @@
-from typing import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator
 
 from loguru import logger
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.settings import settings
-from app.modules.shared.presentation.exceptions import StandardException
-
+from app.modules.shared.application.exceptions import StandardException
 
 # synchronous engine for migrations and initial setup
 pg_engine = create_engine(

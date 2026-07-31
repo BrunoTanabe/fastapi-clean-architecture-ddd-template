@@ -5,10 +5,10 @@ from loguru import logger
 from sqlalchemy import inspect, text
 
 from app.core.database import pg_engine
-from app.modules.shared.presentation.exceptions import StandardException
+from app.modules.shared.application.exceptions import StandardException
 
 
-async def init_alembic_management() -> None:
+def init_alembic_management() -> None:
     try:
         logger.info("Checking Alembic migration status...")
 

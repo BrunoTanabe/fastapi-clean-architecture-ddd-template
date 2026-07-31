@@ -5,83 +5,91 @@ from fastapi.security import OAuth2PasswordRequestFormStrict
 from loguru import logger
 
 from app.core.security import (
-    no_authentication,
-    authenticate_refresh,
     authenticate_logout,
+    authenticate_refresh,
+    no_authentication,
 )
 from app.core.settings import settings
-from app.modules.authentication.application.use_cases import AuthenticationUseCases
-from app.modules.authentication.domain.entities import Session
-from app.modules.authentication.domain.mappers import (
+from app.modules.authentication.application.exceptions import AuthenticationException
+from app.modules.authentication.application.mappers import (
+    entity_login_mapper,
+    entity_logout_mapper,
+    entity_refresh_mapper,
     login_entity_mapper,
-    refresh_entity_mapper,
     logout_entity_mapper,
+    refresh_entity_mapper,
 )
+from app.modules.authentication.application.use_cases import AuthenticationUseCases
+from app.modules.authentication.domain.entities import Authentication
+from app.modules.authentication.domain.enums import TokenType
 from app.modules.authentication.presentation.dependencies import (
     get_authentication_use_cases,
 )
 from app.modules.authentication.presentation.docs import (
-    router_docs,
     login_docs,
-    refresh_docs,
     logout_docs,
+    refresh_docs,
+    router_docs,
 )
-from app.modules.authentication.presentation.exceptions import AuthenticationException
 from app.modules.authentication.presentation.schemas import (
     LoginResponse,
-    RefreshResponse,
     LogoutResponse,
+    RefreshResponse,
+)
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
 )
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.presentation.exceptions import (
-    StandardException,
-    DomainException,
-)
-from app.modules.user.presentation.exceptions import CookieManagementException
+from app.modules.user.application.exceptions import CookieManagementException
 
 router = APIRouter(**router_docs)
 
 
-async def set_cookies(response: Response, session: Session) -> None:
+def set_cookies(response: Response, authentication: Authentication) -> None:
     try:
         response.set_cookie(
             key=settings.COOKIES_TOKEN_TYPE_KEY,
-            value=session.token_type,
+            value=TokenType.BEARER.value,
             max_age=settings.COOKIES_ACCESS_TOKEN_MAX_AGE,
             path=settings.COOKIES_ACCESS_TOKEN_PATH,
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="lax",
+            samesite=settings.COOKIES_SAME_SITE,
         )
 
         response.set_cookie(
             key=settings.COOKIES_ACCESS_TOKEN_KEY,
-            value=session.refresh_token.access_token.token,
+            value=authentication.refresh_token.access_token.token
+            if authentication.refresh_token.access_token.token
+            else "",
             max_age=settings.COOKIES_ACCESS_TOKEN_MAX_AGE,
             path=settings.COOKIES_ACCESS_TOKEN_PATH,
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="lax",
+            samesite=settings.COOKIES_SAME_SITE,
         )
 
         response.set_cookie(
             key=settings.COOKIES_REFRESH_TOKEN_KEY,
-            value=session.refresh_token.token,
+            value=authentication.refresh_token.token
+            if authentication.refresh_token.token
+            else "",
             max_age=settings.COOKIES_REFRESH_TOKEN_MAX_AGE,
             path=settings.COOKIES_REFRESH_TOKEN_PATH,
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="strict",
+            samesite=settings.COOKIES_SAME_SITE,
         )
     except Exception as e:
         logger.opt(exception=e).error("An error occurred in the set_cookies function.")
         raise CookieManagementException()
 
 
-async def delete_cookies(response: Response) -> None:
+def delete_cookies(response: Response) -> None:
     try:
         response.delete_cookie(
             key=settings.COOKIES_TOKEN_TYPE_KEY,
@@ -89,7 +97,7 @@ async def delete_cookies(response: Response) -> None:
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="lax",
+            samesite=settings.COOKIES_SAME_SITE,
         )
 
         response.delete_cookie(
@@ -98,7 +106,7 @@ async def delete_cookies(response: Response) -> None:
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="lax",
+            samesite=settings.COOKIES_SAME_SITE,
         )
 
         response.delete_cookie(
@@ -107,7 +115,7 @@ async def delete_cookies(response: Response) -> None:
             domain=settings.COOKIES_DOMAIN,
             secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
             httponly=True,
-            samesite="lax",
+            samesite=settings.COOKIES_SAME_SITE,
         )
     except Exception as e:
         logger.opt(exception=e).error(
@@ -123,16 +131,15 @@ async def login(
     request: Request,
     response: Response,
     _: Annotated[None, Depends(no_authentication)],
-    form_data: OAuth2PasswordRequestFormStrict = Depends(),
-    use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
+    form_data: Annotated[OAuth2PasswordRequestFormStrict, Depends()],
+    use_case: Annotated[AuthenticationUseCases, Depends(get_authentication_use_cases)],
 ) -> LoginResponse:
     try:
-        request_domain = await login_entity_mapper(form_data, request)
+        request_domain = login_entity_mapper(form_data, request)
         response_domain = await use_case.login(request_domain)
-        output = await login_entity_mapper(response_domain)
+        output = entity_login_mapper(response_domain)
 
-        await set_cookies(response, response_domain)
-
+        set_cookies(response, response_domain)
         return output
     except StandardException:
         raise
@@ -148,16 +155,15 @@ async def login(
 @router.patch("/refresh", include_in_schema=False)
 async def refresh(
     response: Response,
-    session: Session = Depends(authenticate_refresh),
-    use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
+    authentication: Annotated[Authentication, Depends(authenticate_refresh)],
+    use_case: Annotated[AuthenticationUseCases, Depends(get_authentication_use_cases)],
 ) -> RefreshResponse:
     try:
-        request_domain = await refresh_entity_mapper(session, False)
+        request_domain = refresh_entity_mapper(authentication)
         response_domain = await use_case.refresh(request_domain)
-        output = await refresh_entity_mapper(response_domain, True)
+        output = entity_refresh_mapper(response_domain)
 
-        await set_cookies(response, response_domain)
-
+        set_cookies(response, response_domain)
         return output
     except StandardException:
         raise
@@ -173,21 +179,20 @@ async def refresh(
 @router.delete("/logout", include_in_schema=False)
 async def logout(
     response: Response,
-    session: Session = Depends(authenticate_logout),
-    use_case: AuthenticationUseCases = Depends(get_authentication_use_cases),
+    authentication: Annotated[Authentication, Depends(authenticate_logout)],
+    use_case: Annotated[AuthenticationUseCases, Depends(get_authentication_use_cases)],
 ) -> LogoutResponse:
     try:
-        # await delete_cookies(response)
-
-        request_domain = await logout_entity_mapper(session, False)
+        request_domain = logout_entity_mapper(authentication)
         response_domain = await use_case.logout(request_domain)
-        output = await logout_entity_mapper(response_domain, True)
+        output = entity_logout_mapper(response_domain)
 
+        delete_cookies(response)
         return output
     except StandardException:
         raise
     except DomainError as e:
         raise DomainException(e)
     except Exception as e:
-        logger.opt(exception=e).error("An error occurred in the refresh endpoint.")
+        logger.opt(exception=e).error("An error occurred in the logout endpoint.")
         raise AuthenticationException()

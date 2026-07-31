@@ -5,28 +5,32 @@ from fastapi.responses import RedirectResponse
 from loguru import logger
 
 from app.core.security import authenticate_admin, no_authentication
-from app.modules.health.application.use_cases import HealthUseCases
-from app.modules.health.domain.mappers import health_mapper, alembic_entity_mapper
-from app.modules.health.presentation.dependencies import get_health_use_cases
-from app.modules.health.presentation.docs import (
-    router_docs,
-    health_docs,
-    redirect_docs,
-    alembic_version_docs,
-)
-from app.modules.health.presentation.exceptions import (
+from app.modules.authentication.domain.entities import Authentication
+from app.modules.health.application.exceptions import (
     HealthException,
 )
+from app.modules.health.application.mappers import (
+    alembic_entity_mapper,
+    entity_alembic_mapper,
+    entity_health_mapper,
+)
+from app.modules.health.application.use_cases import HealthUseCases
+from app.modules.health.presentation.dependencies import get_health_use_cases
+from app.modules.health.presentation.docs import (
+    alembic_version_docs,
+    health_docs,
+    redirect_docs,
+    router_docs,
+)
 from app.modules.health.presentation.schemas import (
-    HealthResponse,
     AlembicVersionResponse,
+    HealthResponse,
+)
+from app.modules.shared.application.exceptions import (
+    DomainException,
+    StandardException,
 )
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.presentation.exceptions import (
-    StandardException,
-    DomainException,
-)
-from app.modules.user.domain.entities import User
 
 router = APIRouter(**router_docs)
 
@@ -35,11 +39,11 @@ router = APIRouter(**router_docs)
 @router.get("/health", include_in_schema=False)
 async def health(
     _: Annotated[None, Depends(no_authentication)],
-    use_case: HealthUseCases = Depends(get_health_use_cases),
+    use_case: Annotated[HealthUseCases, Depends(get_health_use_cases)],
 ) -> HealthResponse:
     try:
-        response_domain = await use_case.health()
-        output = await health_mapper(response_domain)
+        response_domain = use_case.health()
+        output = entity_health_mapper(response_domain)
 
         return output
     except StandardException:
@@ -69,13 +73,13 @@ async def redirect(
 @router.get("/api/v1/alembic-version/", **alembic_version_docs)
 @router.get("/api/v1/alembic-version", include_in_schema=False)
 async def alembic_version(
-    user: User = Depends(authenticate_admin),
-    use_case: HealthUseCases = Depends(get_health_use_cases),
+    authentication: Annotated[Authentication, Depends(authenticate_admin)],
+    use_case: Annotated[HealthUseCases, Depends(get_health_use_cases)],
 ) -> AlembicVersionResponse:
     try:
-        request_domain = await alembic_entity_mapper(user)
+        request_domain = alembic_entity_mapper(authentication)
         response_domain = await use_case.alembic_version(request_domain)
-        output = await alembic_entity_mapper(response_domain)
+        output = entity_alembic_mapper(response_domain)
 
         return output
     except StandardException:

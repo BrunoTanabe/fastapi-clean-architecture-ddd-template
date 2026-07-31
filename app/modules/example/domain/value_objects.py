@@ -1,4 +1,4 @@
-from app.modules.shared.presentation.exceptions import DomainError
+from app.modules.shared.domain.entities import DomainError
 
 
 class FullName:

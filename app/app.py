@@ -1,30 +1,33 @@
 from fastapi import FastAPI
-from fastapi.exceptions import HTTPException
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.exception_handler import (
-    validation_exception_handler,
     http_exception_handler,
     internal_exception_handler,
+    validation_exception_handler,
 )
 from app.core.middleware import (
-    log_request_middleware,
-    ResponseFormattingMiddleware,
     DeviceIdMiddleware,
+    LogRequestMiddleware,
+    ResponseFormattingMiddleware,
 )
 from app.core.resources import lifespan
 from app.core.settings import settings
-from app.modules.example.presentation.routers import router as example_router
-from app.modules.shared.application.enums import ApplicationEnvironment
-
-from app.modules.health.presentation.routers import router as health_router
 from app.modules.authentication.presentation.routers import (
     router as authentication_router,
 )
+from app.modules.example.presentation.routers import router as example_router
+from app.modules.health.presentation.routers import router as health_router
+from app.modules.key.presentation.routers import router as key_router
+from app.modules.knowledge.presentation.routers import router as knowledge_router
+from app.modules.notification.presentation.routers import (
+    router as notification_router,
+)
+from app.modules.shared.domain.enums import ApplicationEnvironment
 from app.modules.user.presentation.routers import router as user_router
+from app.modules.websocket.presentation.routers import router as websocket_router
 
 # APPLICATION
 app = FastAPI(
@@ -51,14 +54,14 @@ app.add_exception_handler(Exception, internal_exception_handler)
 
 # MIDDLEWARES
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,  # type: ignore[arg-type]
     allow_origins=[str(origin) for origin in settings.SECURITY_ALLOW_ORIGINS],
     allow_credentials=True,
     allow_methods=[str(method) for method in settings.SECURITY_ALLOW_METHODS],
     allow_headers=[str(header) for header in settings.SECURITY_ALLOW_HEADERS],
 )
 app.add_middleware(ResponseFormattingMiddleware)
-app.add_middleware(BaseHTTPMiddleware, dispatch=log_request_middleware)
+app.add_middleware(LogRequestMiddleware)
 app.add_middleware(DeviceIdMiddleware)
 
 
@@ -67,7 +70,11 @@ routers = [
     authentication_router,
     example_router,
     health_router,
+    key_router,
+    knowledge_router,
+    notification_router,
     user_router,
+    websocket_router,
 ]
 
 
@@ -106,8 +113,24 @@ def custom_openapi():
                 "description": "Endpoints for monitoring the health of the application.",
             },
             {
+                "name": "Key",
+                "description": "Endpoints for managing API keys.",
+            },
+            {
+                "name": "Knowledge",
+                "description": "Endpoints for managing knowledge base resources.",
+            },
+            {
+                "name": "Notification",
+                "description": "Endpoints for managing user notifications.",
+            },
+            {
                 "name": "User",
                 "description": "Endpoints for managing user resources.",
+            },
+            {
+                "name": "WebSocket",
+                "description": "WebSocket endpoints for real-time notifications.",
             },
         ],
         contact={
@@ -128,7 +151,7 @@ def custom_openapi():
         settings.AUTH_API_KEY_SCHEME_NAME: {
             "type": "apiKey",
             "in": "header",
-            "name": settings.AUTH_API_KEY_HEADER,
+            "name": settings.AUTH_API_KEY_NAME,
             "description": "API Key necessary to access the API endpoints.",
         },
     }
