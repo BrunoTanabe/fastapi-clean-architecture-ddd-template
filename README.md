@@ -47,7 +47,6 @@ can copy for the tenth module.
 - [Caching](#caching)
 - [Development](#development)
 - [Configuration](#configuration)
-- [AI-Assisted Scaffolding](#ai-assisted-scaffolding)
 - [Known Limitations](#known-limitations)
 - [Contributing](#contributing)
 - [License](#license)
@@ -67,7 +66,6 @@ can copy for the tenth module.
 | 🔌 | **WebSockets** | Authenticated channel with Origin validation, since CORS does not cover the handshake. |
 | 📦 | **Self-migrating stack** | `docker compose up` gives you Postgres, Redis, pgAdmin and RedisInsight; the app runs Alembic to head on startup. |
 | 📖 | **OpenAPI that means something** | Every endpoint documents its full error contract, not just the happy path. |
-| 🤖 | **Scaffolding built in** | 23 Claude Code slash commands that generate code following exactly these conventions. |
 
 ---
 
@@ -1005,8 +1003,9 @@ test/
 ```
 
 > [!NOTE]
-> pytest is **not yet a dependency** and the test packages are empty scaffolding. Install with
-> `uv add --dev pytest pytest-asyncio`, or run `/create-test <module>` which bootstraps it for you.
+> pytest is **not yet a dependency** and the test packages are empty scaffolding. Install it with
+> `uv add --dev pytest pytest-asyncio`, then add `[tool.pytest.ini_options]` with
+> `asyncio_mode = "auto"` and `testpaths = ["test"]` to `pyproject.toml`.
 
 ---
 
@@ -1194,44 +1193,6 @@ Set the JWT expiry, not the cookie age — the cookie age follows.
 
 ---
 
-## AI-Assisted Scaffolding
-
-The `.claude/` directory ships a complete Claude Code toolkit so generated code follows these
-conventions instead of generic FastAPI patterns.
-
-```text
-.claude/
-├── architecture.md          Canonical pattern reference — read by every skill
-├── reference/               shared-module · persistence · caching · security
-├── commands/                23 slash commands
-└── plugins/fastapi-ddd-scaffolder/
-    ├── skills/              24 skills — the procedures themselves
-    ├── agents/              ddd-reviewer, a read-only module auditor
-    └── hooks/               ruff format + check on every Python file written
-```
-
-| Command | Generates |
-|---|---|
-| `/create-feature` | A whole feature: discovery → confirmed plan → every layer |
-| `/create-module` | The four-layer skeleton plus its test package |
-| `/create-endpoint` | One endpoint through every layer + allowlist registration |
-| `/create-entity` · `/create-value-object` · `/create-exception` | Domain layer |
-| `/create-use-case` · `/create-mapper` | Application layer |
-| `/create-model` · `/create-repository-method` · `/create-cache` · `/create-service` | Infrastructure layer |
-| `/create-schema` · `/create-docs` · `/create-router` | Presentation layer |
-| `/create-migration` · `/create-seed-migration` · `/add-setting` | Data and configuration |
-| `/register-module` | Wires a module into `app.py` and the allowlists |
-| `/create-test` · `/verify` · `/check-standards` | Quality |
-| `/sync-architecture` | Detects drift between the code and these docs |
-
-Each command is a thin wrapper that `@`-includes its paired skill, so the two surfaces cannot
-diverge. Say "add a database model for invoices" and Claude loads the same procedure `/create-model`
-runs.
-
-See [`.claude/README.md`](.claude/README.md) for the full guide.
-
----
-
 ## Known Limitations
 
 Documented on purpose. These are conscious trade-offs or work in progress — not defects to
@@ -1242,7 +1203,7 @@ Documented on purpose. These are conscious trade-offs or work in progress — no
 | **WebSocket fan-out** | `ConnectionManager` holds connections in an in-memory dict on `app.state` | Delivery works within one process only. Multi-worker deployments need Redis pub/sub. |
 | **`knowledge` caching** | `IKnowledgeCache` declares only `insert`, and the use case never calls it | The scaffolding is present but inactive. Follow `key` to complete it. |
 | **API-key tier** | `SECURITY_API_KEY_ALLOWED_PATHS` is an empty tuple | Key authentication is fully implemented but no endpoint accepts it yet. |
-| **Tests** | Packages exist, pytest is not a dependency | Run `/create-test` or `uv add --dev pytest pytest-asyncio` to bootstrap. |
+| **Tests** | Packages exist, pytest is not a dependency | Run `uv add --dev pytest pytest-asyncio` to bootstrap. |
 | **File logging** | `LOGS_PATH` is configured but no file sink is registered | Logs go to stderr only — correct for containers, surprising if you expect files. |
 | **`GET /`** | Uses `no_authentication`, but `/` is absent from `SECURITY_NO_AUTH_PATHS` | The docs redirect returns **403**. Add `_path_rule("/", "GET")` to that tier to enable it. |
 
@@ -1251,8 +1212,8 @@ Documented on purpose. These are conscious trade-offs or work in progress — no
 ## Contributing
 
 1. Fork and branch from `development`.
-2. Follow the conventions — [`.claude/architecture.md`](.claude/architecture.md) documents every
-   pattern, and `/check-standards` audits against them.
+2. Follow the conventions — [Architecture](#architecture) documents every layer pattern, the three
+   error-handling shapes, and the naming rules.
 3. `make lint && make format` before committing.
 4. Use [Conventional Commits](https://www.conventionalcommits.org/): `feat(key): add rotation endpoint`.
 5. Open a pull request describing what changed and why.

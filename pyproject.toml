@@ -35,26 +35,14 @@ dev = [
 target-version = "py314"
 
 [tool.ruff.lint]
-# Ruff's default rule set, minus two rules that fight deliberate conventions.
 ignore = [
-    # BLE001 (blind-except) flags `except Exception as e:`, which is the backbone of
-    # this project's three error-handling shapes. Every occurrence logs with
-    # logger.opt(exception=e).error(...) and re-raises a typed StandardException, so
-    # nothing is ever silently swallowed. See .claude/architecture.md.
     "BLE001",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# UP037 (quoted-annotation) strips the quotes from `Mapped["OtherModel"]` in
-# relationships whose target is imported only under `if TYPE_CHECKING:`. SQLAlchemy
-# documents the quoted form for exactly that case, and .claude/reference/persistence.md
-# mandates it, so keep the quotes here.
 "app/modules/*/infrastructure/models.py" = ["UP037"]
 
 [tool.ruff.lint.flake8-bugbear]
-# B008 (function-call-in-default-argument) flags FastAPI's dependency-injection
-# idiom. These callables are evaluated per request by FastAPI, not once at import,
-# so the mutable-default hazard the rule guards against does not apply.
 extend-immutable-calls = [
     "fastapi.Body",
     "fastapi.Cookie",

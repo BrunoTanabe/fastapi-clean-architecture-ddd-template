@@ -47,7 +47,6 @@ você pode copiar para o décimo módulo.
 - [Cache](#cache)
 - [Desenvolvimento](#desenvolvimento)
 - [Configuração](#configuração)
-- [Scaffolding assistido por IA](#scaffolding-assistido-por-ia)
 - [Limitações conhecidas](#limitações-conhecidas)
 - [Contribuindo](#contribuindo)
 - [Licença](#licença)
@@ -67,7 +66,6 @@ você pode copiar para o décimo módulo.
 | 🔌 | **WebSockets** | Canal autenticado com validação de `Origin`, já que o CORS não cobre o handshake. |
 | 📦 | **Stack automigratória** | `docker compose up` sobe Postgres, Redis, pgAdmin e RedisInsight; a aplicação executa o Alembic até a head na inicialização. |
 | 📖 | **OpenAPI que significa algo** | Todo endpoint documenta o contrato completo de erros, não só o caminho feliz. |
-| 🤖 | **Scaffolding embutido** | 23 slash commands do Claude Code que geram código seguindo exatamente estas convenções. |
 
 ---
 
@@ -1010,8 +1008,9 @@ test/
 ```
 
 > [!NOTE]
-> O pytest **ainda não é uma dependência** e os pacotes de teste são esqueletos vazios. Instale com
-> `uv add --dev pytest pytest-asyncio`, ou rode `/create-test <module>`, que faz isso por você.
+> O pytest **ainda não é uma dependência** e os pacotes de teste são esqueletos vazios. Instale-o
+> com `uv add --dev pytest pytest-asyncio` e depois adicione `[tool.pytest.ini_options]` com
+> `asyncio_mode = "auto"` e `testpaths = ["test"]` ao `pyproject.toml`.
 
 ---
 
@@ -1199,44 +1198,6 @@ Defina a expiração do JWT, não a idade do cookie — a idade do cookie acompa
 
 ---
 
-## Scaffolding assistido por IA
-
-O diretório `.claude/` traz um toolkit completo do Claude Code para que o código gerado siga estas
-convenções, e não padrões genéricos de FastAPI.
-
-```text
-.claude/
-├── architecture.md          Referência canônica dos padrões — lida por toda skill
-├── reference/               shared-module · persistence · caching · security
-├── commands/                23 slash commands
-└── plugins/fastapi-ddd-scaffolder/
-    ├── skills/              24 skills — os procedimentos em si
-    ├── agents/              ddd-reviewer, um auditor de módulo somente leitura
-    └── hooks/               ruff format + check em todo arquivo Python gravado
-```
-
-| Comando | Gera |
-|---|---|
-| `/create-feature` | Uma funcionalidade inteira: descoberta → plano confirmado → todas as camadas |
-| `/create-module` | O esqueleto de quatro camadas e seu pacote de testes |
-| `/create-endpoint` | Um endpoint por todas as camadas + registro na allowlist |
-| `/create-entity` · `/create-value-object` · `/create-exception` | Camada de domínio |
-| `/create-use-case` · `/create-mapper` | Camada de aplicação |
-| `/create-model` · `/create-repository-method` · `/create-cache` · `/create-service` | Camada de infraestrutura |
-| `/create-schema` · `/create-docs` · `/create-router` | Camada de apresentação |
-| `/create-migration` · `/create-seed-migration` · `/add-setting` | Dados e configuração |
-| `/register-module` | Integra um módulo ao `app.py` e às allowlists |
-| `/create-test` · `/verify` · `/check-standards` | Qualidade |
-| `/sync-architecture` | Detecta divergência entre o código e esta documentação |
-
-Cada comando é um invólucro fino que faz `@`-include da skill correspondente, então as duas
-superfícies não podem divergir. Diga "adicione um modelo de banco para faturas" e o Claude carrega
-o mesmo procedimento que o `/create-model` executa.
-
-Veja [`.claude/README.md`](.claude/README.md) para o guia completo.
-
----
-
 ## Limitações conhecidas
 
 Documentadas de propósito. São compromissos conscientes ou trabalho em andamento — não defeitos a
@@ -1247,7 +1208,7 @@ serem "limpos".
 | **Fan-out do WebSocket** | O `ConnectionManager` guarda as conexões em um dicionário em memória no `app.state` | A entrega funciona apenas dentro de um processo. Implantações multi-worker precisam de pub/sub no Redis. |
 | **Cache do `knowledge`** | `IKnowledgeCache` declara apenas `insert`, e o caso de uso nunca o chama | A estrutura existe, mas está inativa. Siga o `key` para completá-la. |
 | **Tier de chave de API** | `SECURITY_API_KEY_ALLOWED_PATHS` é uma tupla vazia | A autenticação por chave está implementada, mas nenhum endpoint a aceita ainda. |
-| **Testes** | Os pacotes existem, o pytest não é dependência | Rode `/create-test` ou `uv add --dev pytest pytest-asyncio` para começar. |
+| **Testes** | Os pacotes existem, o pytest não é dependência | Rode `uv add --dev pytest pytest-asyncio` para começar. |
 | **Log em arquivo** | `LOGS_PATH` está configurado, mas nenhum destino em arquivo é registrado | Os logs vão só para o stderr — correto para contêineres, surpreendente se você espera arquivos. |
 | **`GET /`** | Usa `no_authentication`, mas `/` não está em `SECURITY_NO_AUTH_PATHS` | O redirecionamento da documentação retorna **403**. Adicione `_path_rule("/", "GET")` a esse tier para habilitá-lo. |
 
@@ -1256,8 +1217,8 @@ serem "limpos".
 ## Contribuindo
 
 1. Faça um fork e crie um branch a partir de `development`.
-2. Siga as convenções — [`.claude/architecture.md`](.claude/architecture.md) documenta todos os
-   padrões, e o `/check-standards` audita em cima deles.
+2. Siga as convenções — [Arquitetura](#arquitetura) documenta todos os padrões de camada, os três
+   formatos de tratamento de erro e as regras de nomenclatura.
 3. Rode `make lint && make format` antes de commitar.
 4. Use [Conventional Commits](https://www.conventionalcommits.org/):
    `feat(key): add rotation endpoint`.
