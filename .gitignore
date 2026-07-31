@@ -198,8 +198,8 @@ cython_debug/
 .cursorindexingignore
 
 # Claude
-#  CLAUDE.md and .claude/ are versioned on purpose: the scaffolding skills, slash commands and
-#  architecture reference ship with the template. Only per-machine permission config is ignored.
+CLAUDE.md
+.claude/
 .claude/settings.local.json
 settings.local.json
 
