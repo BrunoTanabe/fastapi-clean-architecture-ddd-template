@@ -20,11 +20,13 @@ dependencies = [
     "py-automapper>=2.2.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
+    "redis>=7.4.0",
     "sqlalchemy>=2.0.48",
     "stackprinter>=0.2.12",
 ]
 
 [dependency-groups]
 dev = [
+    "ngrok>=1.7.0",
     "ruff>=0.15.4",
 ]
