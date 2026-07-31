@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.core.settings import settings
-from app.modules.shared.presentation.exceptions import StandardException
+from app.modules.shared.application.exceptions import StandardException
 
 
 # synchronous engine for migrations and initial setup

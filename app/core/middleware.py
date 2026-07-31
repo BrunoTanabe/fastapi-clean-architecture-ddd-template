@@ -1,110 +1,287 @@
-from collections.abc import Callable
 from http import HTTPStatus
 from secrets import token_urlsafe
 from time import time
 from uuid import uuid4
 
 import orjson
-from fastapi import Request, Response
-from fastapi.responses import RedirectResponse, HTMLResponse
-from hypercorn.logging import AccessLogAtoms
 from loguru import logger
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import StreamingResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.settings import settings
-from app.modules.shared.application.enums import ResponseMessages
-from app.modules.shared.application.utils import current_timestamp
-from app.modules.shared.presentation.exceptions import CoreException
+from app.modules.shared.domain.enums import ResponseMessages
+from app.modules.shared.application.utils import current_timestamp, resolve_client_ip
+from app.modules.shared.application.exceptions import CoreException
 from app.modules.shared.presentation.schemas import (
     StandardResponse,
     StandardDetailsResponse,
 )
 
+_SKIP_FORMATTING_PATHS: frozenset[str] = frozenset({"/openapi.json", "/docs", "/redoc"})
 
-async def log_request_middleware(request: Request, call_next: Callable) -> Response:
-    start_time = time()
-    request_id: str = token_urlsafe(settings.LOGS_REQUEST_ID_LENGTH)
-    exception = None
+_STATUS_MESSAGES: dict[int, str] = {
+    400: ResponseMessages.VALIDATION_ERROR.value,
+    401: ResponseMessages.UNAUTHORIZED_ERROR.value,
+    403: ResponseMessages.AUTHORIZATION_ERROR.value,
+    404: ResponseMessages.RESOURCE_NOT_FOUND.value,
+    405: ResponseMessages.METHOD_ERROR.value,
+    422: ResponseMessages.VALIDATION_ERROR.value,
+    429: ResponseMessages.RATE_LIMIT_EXCEEDED.value,
+}
 
-    skip_logging = request.url.path == "/health"
+_REDIRECT_STATUSES: frozenset[int] = frozenset({301, 302, 307, 308})
 
-    with logger.contextualize(request_id=request_id):
-        try:
+_REFORMAT_STRIP_HEADERS: frozenset[bytes] = frozenset(
+    {b"content-length", b"content-encoding", b"transfer-encoding", b"content-type"}
+)
+
+
+def _message_for_status(status_code: int) -> str:
+    if 200 <= status_code < 300:
+        return ResponseMessages.SUCCESS.value
+    if status_code >= 500:
+        return ResponseMessages.INTERNAL_ERROR.value
+    return _STATUS_MESSAGES.get(status_code, ResponseMessages.SUCCESS.value)
+
+
+def _get_header(headers: list[tuple[bytes, bytes]], name: bytes) -> str:
+    for k, v in headers:
+        if k.lower() == name:
+            return v.decode("latin-1")
+    return ""
+
+
+def _parse_cookies(cookie_header: str) -> dict[str, str]:
+    cookies: dict[str, str] = {}
+    for part in cookie_header.split(";"):
+        part = part.strip()
+        if "=" in part:
+            key, _, value = part.partition("=")
+            cookies[key.strip()] = value.strip()
+    return cookies
+
+
+def _build_set_cookie(
+    key: str,
+    value: str,
+    *,
+    max_age: int,
+    path: str,
+    domain: str | None,
+    secure: bool,
+    httponly: bool,
+    samesite: str,
+) -> str:
+    parts = [f"{key}={value}", f"Max-Age={max_age}", f"Path={path}"]
+    if domain:
+        parts.append(f"Domain={domain}")
+    if secure:
+        parts.append("Secure")
+    if httponly:
+        parts.append("HttpOnly")
+    if samesite:
+        parts.append(f"SameSite={samesite}")
+    return "; ".join(parts)
+
+
+class DeviceIdMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        req_headers: list[tuple[bytes, bytes]] = list(scope.get("headers", []))
+        cookies = _parse_cookies(_get_header(req_headers, b"cookie"))
+        device_id = cookies.get(settings.COOKIES_DEVICE_KEY)
+
+        new_device_id: str | None = None
+        if not device_id:
+            device_id = uuid4().hex
+            new_device_id = device_id
+
+        scope.setdefault("state", {})
+        scope["state"]["device_id"] = device_id
+        if new_device_id:
+            scope["state"]["new_device_id"] = new_device_id
+
+        if not new_device_id:
+            await self.app(scope, receive, send)
+            return
+
+        cookie_bytes = _build_set_cookie(
+            settings.COOKIES_DEVICE_KEY,
+            device_id,
+            max_age=settings.COOKIES_REFRESH_TOKEN_MAX_AGE,
+            path=settings.COOKIES_ACCESS_TOKEN_PATH,
+            domain=settings.COOKIES_DOMAIN,
+            secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
+            httponly=True,
+            samesite=settings.COOKIES_SAME_SITE,
+        ).encode("latin-1")
+
+        async def send_wrapper(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                new_headers = list(message.get("headers", []))
+                new_headers.append((b"set-cookie", cookie_bytes))
+                message = {**message, "headers": new_headers}
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
+class LogRequestMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        start_time = time()
+        request_id = token_urlsafe(settings.LOGS_REQUEST_ID_LENGTH)
+        path: str = scope.get("path", "")
+        skip_logging = path == "/health"
+        method: str = scope.get("method", "")
+        query_string = scope.get("query_string", b"").decode("latin-1")
+        path_with_query = f"{path}?{query_string}" if query_string else path
+        scheme: str = scope.get("scheme", "http")
+        http_version: str = scope.get("http_version", "1.1")
+        client = scope.get("client")
+        client_host = client[0] if client else "unknown"
+
+        req_headers: list[tuple[bytes, bytes]] = list(scope.get("headers", []))
+        x_forwarded_proto = _get_header(req_headers, b"x-forwarded-proto")
+        remote_ip = resolve_client_ip(
+            x_forwarded_for=_get_header(req_headers, b"x-forwarded-for") or None,
+            x_real_ip=_get_header(req_headers, b"x-real-ip") or None,
+            peer_host=client_host,
+        )
+
+        exception: Exception | None = None
+        response_started = False
+
+        with logger.contextualize(request_id=request_id):
             if not skip_logging:
                 logger.info(
                     "Received request",
-                    method=request.method,
-                    path=request.url.path,
-                    query=request.url.query,
-                    content_type=request.headers.get("content-type"),
-                    user_agent=request.headers.get("user-agent"),
-                    host=request.headers.get("host"),
-                    content_length=request.headers.get("content-length"),
-                    client_ip=request.client.host,
+                    method=method,
+                    path=path,
+                    query=query_string,
+                    content_type=_get_header(req_headers, b"content-type"),
+                    user_agent=_get_header(req_headers, b"user-agent"),
+                    host=_get_header(req_headers, b"host"),
+                    content_length=_get_header(req_headers, b"content-length"),
+                    client_ip=client_host,
                 )
 
-            response = await call_next(request)
-        except Exception as exc:
-            exception = exc
-            core_exc = CoreException()
-            response_content = StandardResponse(
-                code=core_exc.status_code,
-                method=request.method,
-                path=request.url.path,
-                timestamp=current_timestamp(),
-                details=StandardDetailsResponse(
-                    message=ResponseMessages.INTERNAL_ERROR.value, data=core_exc.data
-                ),
-            )
-            response = Response(
-                status_code=core_exc.status_code,
-                content=response_content.model_dump_json(),
-                media_type="application/json",
-            )
-        final_time = time()
-        elapsed = final_time - start_time
-        if not skip_logging:
-            response_dict = {
-                "status": response.status_code,
-                "headers": response.headers.raw if hasattr(response, "headers") else {},
-            }
+            async def send_wrapper(message: Message) -> None:
+                nonlocal response_started
 
-            atoms = AccessLogAtoms(request, response_dict, final_time)  # noqa
+                if message["type"] == "http.response.start":
+                    response_started = True
+                    request_elapsed = time() - start_time
+                    status_code: int = message["status"]
+                    resp_headers: list[tuple[bytes, bytes]] = list(
+                        message.get("headers", [])
+                    )
 
-            data = {
-                "remote_ip": request.headers.get("x-forwarded-for") or atoms["h"],
-                "schema": request.headers.get("x-forwarded-proto") or atoms["S"],
-                "protocol": atoms["H"],
-                "method": atoms["m"],
-                "path_with_query": atoms["Uq"],
-                "status_code": response.status_code,
-                "response_length": atoms["B"],
-                "elapsed": elapsed,
-                "referer": atoms["f"],
-                "user_agent": atoms["a"],
-            }
+                    if not skip_logging:
+                        log_data = {
+                            "remote_ip": remote_ip,
+                            "schema": x_forwarded_proto or scheme,
+                            "protocol": f"HTTP/{http_version}",
+                            "method": method,
+                            "path_with_query": path_with_query,
+                            "status_code": status_code,
+                            "response_length": _get_header(
+                                resp_headers, b"content-length"
+                            ),
+                            "elapsed": request_elapsed,
+                            "referer": _get_header(req_headers, b"referer"),
+                            "user_agent": _get_header(req_headers, b"user-agent"),
+                        }
+                        if not exception:
+                            logger.success("Request processed successfully", **log_data)
+                        else:
+                            logger.opt(exception=exception).error(
+                                "Unhandled exception occurred", **log_data
+                            )
 
-            if not exception:
-                logger.success("Request processed successfully", **data)
-            else:
-                logger.opt(exception=exception).error(
-                    "Unhandled exception occurred", **data
-                )
+                    resp_headers.append((b"x-request-id", request_id.encode()))
+                    resp_headers.append(
+                        (b"x-processed-time", str(request_elapsed).encode())
+                    )
+                    message = {**message, "headers": resp_headers}
 
-    response.headers["X-Request-ID"] = request_id
-    response.headers["X-Processed-Time"] = str(elapsed)
+                await send(message)
 
-    return response
+            try:
+                await self.app(scope, receive, send_wrapper)
+            except Exception as exc:
+                exception = exc
+                if not response_started:
+                    core_exc = CoreException()
+                    body = (
+                        StandardResponse(
+                            code=core_exc.status_code,
+                            method=method,
+                            path=path,
+                            timestamp=current_timestamp(),
+                            details=StandardDetailsResponse(
+                                message=ResponseMessages.INTERNAL_ERROR.value,
+                                data=core_exc.data,
+                            ),
+                        )
+                        .model_dump_json()
+                        .encode()
+                    )
+                    elapsed = time() - start_time
+
+                    if not skip_logging:
+                        logger.opt(exception=exc).error(
+                            "Unhandled exception occurred",
+                            remote_ip=remote_ip,
+                            schema=x_forwarded_proto or scheme,
+                            protocol=f"HTTP/{http_version}",
+                            method=method,
+                            path_with_query=path_with_query,
+                            status_code=core_exc.status_code,
+                            response_length=len(body),
+                            elapsed=elapsed,
+                            referer=_get_header(req_headers, b"referer"),
+                            user_agent=_get_header(req_headers, b"user-agent"),
+                        )
+
+                    await send(
+                        {
+                            "type": "http.response.start",
+                            "status": core_exc.status_code,
+                            "headers": [
+                                (b"content-type", b"application/json"),
+                                (b"content-length", str(len(body)).encode()),
+                                (b"x-request-id", request_id.encode()),
+                                (b"x-processed-time", str(elapsed).encode()),
+                            ],
+                        }
+                    )
+                    await send(
+                        {"type": "http.response.body", "body": body, "more_body": False}
+                    )
+                else:
+                    raise
 
 
-class ResponseFormattingMiddleware(BaseHTTPMiddleware):
-    _EXCLUDED_HEADERS = {"content-length", "content-encoding", "transfer-encoding"}
+class ResponseFormattingMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
 
     @staticmethod
-    def _is_docs_request(request: Request) -> bool:
-        referer = (request.headers.get("referer") or "").lower()
-        user_agent = (request.headers.get("user-agent") or "").lower()
+    def _is_docs_request(headers: list[tuple[bytes, bytes]]) -> bool:
+        referer = _get_header(headers, b"referer").lower()
+        user_agent = _get_header(headers, b"user-agent").lower()
         return (
             "/docs" in referer
             or "/redoc" in referer
@@ -112,228 +289,257 @@ class ResponseFormattingMiddleware(BaseHTTPMiddleware):
             or "swagger" in user_agent
         )
 
-    @classmethod
-    def _safe_headers(cls, response: Response) -> dict[str, str]:
-        return {
-            key: value
-            for key, value in response.headers.items()
-            if key.lower() not in cls._EXCLUDED_HEADERS and key.lower() != "set-cookie"
-        }
-
     @staticmethod
-    def _set_cookie_headers(response: Response) -> list[tuple[bytes, bytes]]:
-        return [
-            (key, value)
-            for key, value in response.raw_headers
-            if key.lower() == b"set-cookie"
-        ]
-
-    @classmethod
-    def _build_response(
-        cls,
-        original_response: Response,
-        *,
-        status_code: int,
-        content: str | bytes,
-        media_type: str | None,
-    ) -> Response:
-        rebuilt_response = Response(
-            status_code=status_code,
-            content=content,
-            headers=cls._safe_headers(original_response),
-            media_type=media_type,
+    def _is_already_formatted(data: object) -> bool:
+        return (
+            isinstance(data, dict)
+            and "code" in data
+            and "method" in data
+            and "path" in data
+            and "timestamp" in data
+            and "details" in data
         )
 
-        # Preserve every Set-Cookie header because login sets multiple cookies.
-        for key, value in cls._set_cookie_headers(original_response):
-            rebuilt_response.raw_headers.append((key, value))
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        return rebuilt_response
+        path: str = scope["path"]
+        if path in _SKIP_FORMATTING_PATHS:
+            await self.app(scope, receive, send)
+            return
 
-    async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
+        method: str = scope.get("method", "")
+        req_headers: list[tuple[bytes, bytes]] = list(scope.get("headers", []))
+        is_docs = self._is_docs_request(req_headers)
 
-        if request.url.path in ["/openapi.json", "/docs", "/redoc"]:
-            logger.debug(
-                "Skipping response formatting for OpenAPI documentation endpoints."
-            )
-            return response
+        start_message: dict | None = None
+        is_passthrough = False
+        is_done = False
+        body_chunks: list[bytes] = []
 
-        content_type = (response.headers.get("content-type") or "").lower()
-        if (
-            isinstance(response, StreamingResponse)
-            or "text/event-stream" in content_type
-        ):
-            logger.debug("Skipping response formatting for SSE streaming")
-            return response
+        async def send_wrapper(message: Message) -> None:
+            nonlocal start_message, is_passthrough, is_done
 
-        if isinstance(response, RedirectResponse):
-            if self._is_docs_request(request):
-                url = (
-                    response.headers.get("location")
-                    or response.headers.get("Location")
-                    or response.headers.get("X-Redirect-URL")
+            if is_passthrough:
+                await send(message)
+                return
+
+            if is_done:
+                return
+
+            if message["type"] == "http.response.start":
+                status: int = message["status"]
+                resp_headers: list[tuple[bytes, bytes]] = list(
+                    message.get("headers", [])
                 )
-                if url:
-                    response_content = StandardResponse(
-                        code=HTTPStatus.PERMANENT_REDIRECT,
-                        method=request.method,
-                        path=request.url.path,
-                        timestamp=current_timestamp(),
-                        details=StandardDetailsResponse(
-                            message=ResponseMessages.REDIRECT_AUTHENTICATION_NOTICE.value,
-                            data={"url": url, "new_tab": False},
-                        ),
-                    )
-                    logger.debug("Converted redirect to JSON for Swagger UI", url=url)
-                    return self._build_response(
-                        response,
-                        status_code=HTTPStatus.PERMANENT_REDIRECT,
-                        content=response_content.model_dump_json(),
-                        media_type="application/json",
-                    )
-            logger.debug("Skipping response formatting for redirect response.")
-            return response
+                content_type = _get_header(resp_headers, b"content-type").lower()
 
-        if isinstance(response, HTMLResponse):
-            if self._is_docs_request(request):
-                url = response.headers.get("X-Redirect-URL")
-                response_content = StandardResponse(
-                    code=HTTPStatus.OK,
-                    method=request.method,
-                    path=request.url.path,
-                    timestamp=current_timestamp(),
-                    details=StandardDetailsResponse(
-                        message=ResponseMessages.REDIRECT_AUTHENTICATION_NOTICE.value,
-                        data={"url": url, "new_tab": True},
-                    ),
-                )
-                logger.debug("Converted HTML to JSON for Swagger UI", url=url)
-                return self._build_response(
-                    response,
-                    status_code=HTTPStatus.OK,
-                    content=response_content.model_dump_json(),
-                    media_type="application/json",
-                )
-            logger.debug("Skipping response formatting for HTML response.")
-            return response
+                if "text/event-stream" in content_type:
+                    is_passthrough = True
+                    await send(message)
+                    return
 
-        raw_body = b""
-        async for chunk in response.body_iterator:
-            raw_body += chunk
+                if status in _REDIRECT_STATUSES:
+                    if is_docs:
+                        location = _get_header(
+                            resp_headers, b"location"
+                        ) or _get_header(resp_headers, b"x-redirect-url")
+                        if location:
+                            body = (
+                                StandardResponse(
+                                    code=HTTPStatus.PERMANENT_REDIRECT,
+                                    method=method,
+                                    path=path,
+                                    timestamp=current_timestamp(),
+                                    details=StandardDetailsResponse(
+                                        message=ResponseMessages.REDIRECT_AUTHENTICATION_NOTICE.value,
+                                        data={"url": location, "new_tab": False},
+                                    ),
+                                )
+                                .model_dump_json()
+                                .encode()
+                            )
+                            logger.debug(
+                                "Converted redirect to JSON for Swagger UI",
+                                url=location,
+                            )
+                            new_headers: list[tuple[bytes, bytes]] = [
+                                (b"content-type", b"application/json"),
+                                (b"content-length", str(len(body)).encode()),
+                            ]
+                            new_headers += [
+                                (k, v)
+                                for k, v in resp_headers
+                                if k.lower() == b"set-cookie"
+                            ]
+                            await send(
+                                {
+                                    "type": "http.response.start",
+                                    "status": HTTPStatus.PERMANENT_REDIRECT,
+                                    "headers": new_headers,
+                                }
+                            )
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": body,
+                                    "more_body": False,
+                                }
+                            )
+                            is_done = True
+                            return
+                    is_passthrough = True
+                    await send(message)
+                    return
 
-        content_type = response.headers.get("content-type", "")
-        if (
-            "text/html" in content_type
-            or raw_body.startswith(b"<!DOCTYPE")
-            or raw_body.startswith(b"<html")
-        ):
-            logger.debug("Skipping response formatting for HTML content")
-            return self._build_response(
-                response,
-                content=raw_body,
-                status_code=response.status_code,
-                media_type="text/html",
-            )
+                if "text/html" in content_type:
+                    if is_docs:
+                        redirect_url = _get_header(resp_headers, b"x-redirect-url")
+                        if redirect_url:
+                            body = (
+                                StandardResponse(
+                                    code=HTTPStatus.OK,
+                                    method=method,
+                                    path=path,
+                                    timestamp=current_timestamp(),
+                                    details=StandardDetailsResponse(
+                                        message=ResponseMessages.REDIRECT_AUTHENTICATION_NOTICE.value,
+                                        data={"url": redirect_url, "new_tab": True},
+                                    ),
+                                )
+                                .model_dump_json()
+                                .encode()
+                            )
+                            logger.debug(
+                                "Converted HTML to JSON for Swagger UI",
+                                url=redirect_url,
+                            )
+                            new_headers = [
+                                (b"content-type", b"application/json"),
+                                (b"content-length", str(len(body)).encode()),
+                            ]
+                            new_headers += [
+                                (k, v)
+                                for k, v in resp_headers
+                                if k.lower() == b"set-cookie"
+                            ]
+                            await send(
+                                {
+                                    "type": "http.response.start",
+                                    "status": HTTPStatus.OK,
+                                    "headers": new_headers,
+                                }
+                            )
+                            await send(
+                                {
+                                    "type": "http.response.body",
+                                    "body": body,
+                                    "more_body": False,
+                                }
+                            )
+                            is_done = True
+                            return
+                    is_passthrough = True
+                    await send(message)
+                    return
 
-        try:
-            original_data = orjson.loads(raw_body)
+                start_message = message
 
-            if 200 <= response.status_code < 300:
-                message = ResponseMessages.SUCCESS.value
-            elif response.status_code == 400:
-                message = ResponseMessages.VALIDATION_ERROR.value
-            elif response.status_code == 401:
-                message = ResponseMessages.UNAUTHORIZED_ERROR.value
-            elif response.status_code == 403:
-                message = ResponseMessages.AUTHORIZATION_ERROR.value
-            elif response.status_code == 404:
-                message = ResponseMessages.RESOURCE_NOT_FOUND.value
-            elif response.status_code == 405:
-                message = ResponseMessages.METHOD_ERROR.value
-            elif response.status_code == 422:
-                message = ResponseMessages.VALIDATION_ERROR.value
-            elif response.status_code == 429:
-                message = ResponseMessages.RATE_LIMIT_EXCEEDED.value
-            elif response.status_code >= 500:
-                message = ResponseMessages.INTERNAL_ERROR.value
-            else:
-                message = "Request processed."
+            elif message["type"] == "http.response.body":
+                body_chunks.append(message.get("body", b""))
 
-            if (
-                isinstance(original_data, dict)
-                and "code" in original_data
-                and "method" in original_data
-                and "path" in original_data
-                and "timestamp" in original_data
-                and "details" in original_data
-            ):
-                logger.debug("Response already formatted, returning as-is")
-                return self._build_response(
-                    response,
-                    status_code=response.status_code,
-                    content=orjson.dumps(original_data),
-                    media_type="application/json",
-                )
+                if not message.get("more_body", False):
+                    raw_body = b"".join(body_chunks)
 
-            response_content = StandardResponse(
-                code=response.status_code,
-                method=request.method,
-                path=request.url.path,
-                timestamp=current_timestamp(),
-                details=StandardDetailsResponse(message=message, data=original_data),
-            )
+                    if start_message is None:
+                        return
 
-            if request.url.path != "/health":
-                logger.debug("Returning formatted response")
+                    if raw_body.startswith((b"<!DOCTYPE", b"<html")):
+                        await send(start_message)
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": raw_body,
+                                "more_body": False,
+                            }
+                        )
+                        is_done = True
+                        return
 
-            return self._build_response(
-                response,
-                status_code=response.status_code,
-                content=response_content.model_dump_json(),
-                media_type="application/json",
-            )
-        except orjson.JSONDecodeError:
-            logger.debug(
-                "Returning raw response due to JSON decode error",
-                raw_body=raw_body,
-            )
+                    status = start_message["status"]
+                    resp_headers = list(start_message.get("headers", []))
 
-            return self._build_response(
-                response,
-                content=raw_body,
-                status_code=response.status_code,
-                media_type=response.media_type,
-            )
+                    try:
+                        original_data = orjson.loads(raw_body)
 
+                        if self._is_already_formatted(original_data):
+                            new_body = raw_body
+                        else:
+                            if (
+                                isinstance(original_data, dict)
+                                and "message" in original_data
+                            ):
+                                msg = original_data["message"]
+                                data = {
+                                    k: v
+                                    for k, v in original_data.items()
+                                    if k != "message"
+                                }
+                            else:
+                                msg = _message_for_status(status)
+                                data = original_data
 
-class DeviceIdMiddleware(BaseHTTPMiddleware):
-    COOKIE_NAME = "device_id"
+                            new_body = (
+                                StandardResponse(
+                                    code=status,
+                                    method=method,
+                                    path=path,
+                                    timestamp=current_timestamp(),
+                                    details=StandardDetailsResponse(
+                                        message=msg, data=data
+                                    ),
+                                )
+                                .model_dump_json()
+                                .encode()
+                            )
 
-    async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS":
-            return await call_next(request)
+                        new_headers = [
+                            (k, v)
+                            for k, v in resp_headers
+                            if k.lower() not in _REFORMAT_STRIP_HEADERS
+                        ]
+                        new_headers.append((b"content-type", b"application/json"))
+                        new_headers.append(
+                            (b"content-length", str(len(new_body)).encode())
+                        )
 
-        device_id = request.cookies.get(self.COOKIE_NAME)
+                        await send(
+                            {
+                                "type": "http.response.start",
+                                "status": status,
+                                "headers": new_headers,
+                            }
+                        )
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": new_body,
+                                "more_body": False,
+                            }
+                        )
 
-        if not device_id:
-            device_id = uuid4().hex
-            request.state.new_device_id = device_id
+                    except orjson.JSONDecodeError:
+                        await send(start_message)
+                        await send(
+                            {
+                                "type": "http.response.body",
+                                "body": raw_body,
+                                "more_body": False,
+                            }
+                        )
 
-        request.state.device_id = device_id
+                    is_done = True
 
-        response: Response = await call_next(request)
-
-        if getattr(request.state, "new_device_id", None):
-            response.set_cookie(
-                key=settings.COOKIES_DEVICE_KEY,
-                value=device_id,
-                max_age=settings.COOKIES_REFRESH_TOKEN_MAX_AGE,
-                path=settings.COOKIES_REFRESH_TOKEN_PATH,
-                domain=settings.COOKIES_DOMAIN,
-                secure=not settings.APPLICATION_ENVIRONMENT_DEBUG,
-                httponly=True,
-                samesite="strict",
-            )
-
-        return response
+        await self.app(scope, receive, send_wrapper)
