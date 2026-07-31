@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.domain.enums import ResponseMessages
 
 
 # RESPONSE

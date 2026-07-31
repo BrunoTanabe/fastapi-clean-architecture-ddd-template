@@ -1,10 +1,7 @@
 from http import HTTPStatus
 
-from fastapi import Security
-
-from app.core.security import no_authentication
 from app.modules.example.presentation.schemas import ExampleResponse
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse
 
 # MODULE DOCS
@@ -167,7 +164,6 @@ example_docs = {
 example_request_docs = {
     "summary": "Endpoint Example",
     "description": "This endpoint returns a greeting message.",
-    "dependencies": [Security(no_authentication)],
     "response_description": "Returns a greeting message.",
     "response_model": ExampleResponse,
     "status_code": HTTPStatus.OK,
@@ -185,7 +181,8 @@ example_request_docs = {
                         "details": {
                             "message": ResponseMessages.SUCCESS.value,
                             "data": {
-                                "message": "Hello Bruno Tanabe!",
+                                "message": ResponseMessages.SUCCESS.value,
+                                "greeting": "Hello, Bruno Tanabe!",
                             },
                         },
                     }

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from app.modules.example.domain.value_objects import FullName
-from app.modules.shared.presentation.exceptions import DomainError
+from app.modules.shared.domain.entities import DomainError
 
 
 @dataclass(kw_only=True, slots=True)

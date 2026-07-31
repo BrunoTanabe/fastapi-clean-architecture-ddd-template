@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FastAPI Clean Architecture and DDD Template — AsyncAPI Docs</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/@asyncapi/react-component@2.4.0/styles/default.min.css"
+  />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="asyncapi"></div>
+
+  <script src="https://unpkg.com/@asyncapi/react-component@2.4.0/browser/standalone/index.js"></script>
+  <script>
+    AsyncApiStandalone.render(
+      {
+        schema: { url: "/devtools/asyncapi.yaml" },
+        config: {
+          show: { sidebar: true, errors: true },
+        },
+      },
+      document.getElementById("asyncapi")
+    );
+  </script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+{
+  "info": {
+    "_postman_id": "262c77e8-16c7-406b-a339-e34c8f8554f1",
+    "name": "FastAPI Clean Architecture and DDD Template",
+    "description": "Python FastAPI backend template, organized by Clean Architecture layers (domain, application, infrastructure, presentation) and DDD principles. Includes dependency management, Docker support, testing boilerplate, CI-friendly setup and best practices, modular scaffolding to jump-start new projects and ensure long-term maintainability.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "script": {
+                "exec": [
+                  "pm.test(\"login retorna 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"cookies de sessao emitidos\", function () {",
+                  "    pm.expect(pm.cookies.has(\"access_token\"), \"access_token\").to.be.true;",
+                  "    pm.expect(pm.cookies.has(\"refresh_token\"), \"refresh_token\").to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              },
+              "listen": "test"
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "value": "password",
+                  "description": "Obrigatorio pelo OAuth2PasswordRequestFormStrict. Sem ele a resposta e 422.",
+                  "type": "text",
+                  "key": "grant_type"
+                },
+                {
+                  "value": "{{admin_email}}",
+                  "description": "Email do usuario, vindo das variaveis da colecao.",
+                  "type": "text",
+                  "key": "username"
+                },
+                {
+                  "value": "{{admin_password}}",
+                  "description": "Senha do usuario, vinda das variaveis da colecao.",
+                  "type": "text",
+                  "key": "password"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/authentication/login/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "authentication",
+                "login",
+                ""
+              ]
+            },
+            "description": "Autentica o usuario e emite os cookies de sessao.\n\n**Tier:** publico\n\nO corpo e `x-www-form-urlencoded` porque o endpoint usa `OAuth2PasswordRequestFormStrict`, que **exige** o campo `grant_type=password`. Enviar apenas username/password retorna 422.\n\nApos o 200, o Postman guarda os cookies `access_token`, `refresh_token` e `device_id` automaticamente e todas as demais requisicoes passam a funcionar."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/authentication/refresh/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "authentication",
+                "refresh",
+                ""
+              ]
+            },
+            "description": "Rotaciona o access token usando o cookie `refresh_token`.\n\n**Tier:** user\n\nNao recebe corpo. O access token antigo para de valer imediatamente apos esta chamada, tanto no Postgres quanto no cache Redis."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/authentication/logout/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "authentication",
+                "logout",
+                ""
+              ]
+            },
+            "description": "Revoga a sessao e limpa os cookies.\n\n**Tier:** publico na allowlist, mas exige sessao valida (`authenticate_logout`).\n\nApos esta chamada o access token retorna 401 mesmo dentro da validade."
+          },
+          "response": []
+        }
+      ],
+      "description": "Login, renovacao de token e logout. A sessao e materializada como cookies HttpOnly."
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/me/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "me",
+                ""
+              ]
+            },
+            "description": "Retorna o usuario autenticado da sessao corrente.\n\n**Tier:** user"
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"preferred_name\": \"Joe\",\n  \"email\": \"johndoe@admin.com\",\n  \"password\": \"MyP@ssword123\",\n  \"phone\": \"+555472664275\",\n  \"birthdate\": \"1995-01-01\",\n  \"gender\": \"male\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/user/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "user",
+                ""
+              ]
+            },
+            "description": "Cria um usuario (auto-registro).\n\n**Tier:** publico\n\nO payload **nao** aceita `role`: todo usuario criado por aqui nasce como `USER`. O email precisa pertencer a um dominio de `SECURITY_EMAIL_ALLOWED_DOMAINS` (no `.env` atual: `admin.com`), senao a validacao rejeita; email ja cadastrado tambem e rejeitado."
+          },
+          "response": []
+        }
+      ],
+      "description": "Contas de usuarios. Criacao publica (auto-registro como USER) e consulta da sessao corrente."
+    },
+    {
+      "name": "Key",
+      "item": [
+        {
+          "name": "Create API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CI pipeline\",\n  \"description\": \"Used by the CI pipeline to publish releases.\",\n  \"expires_in\": \"30_days\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                ""
+              ]
+            },
+            "description": "Cria uma API Key e retorna o segredo em claro **uma unica vez**.\n\n**Tier:** admin\n\nO banco guarda apenas o hash HMAC-SHA256. Se voce perder o valor retornado aqui, a unica saida e rotacionar ou criar outra.\n\n`expires_in` aceita: `7_days`, `30_days`, `45_days`, `60_days`, `90_days`, `6_months`, `never`."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All API Keys",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"retorna 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const items = pm.response.json()?.details?.data?.api_keys ?? [];",
+                  "if (items.length > 0) {",
+                  "    pm.collectionVariables.set(\"key_id\", items[0].id);",
+                  "    console.log(\"key_id =\", items[0].id);",
+                  "} else {",
+                  "    console.warn(\"Nenhuma API Key ativa. Rode o Create API Key antes.\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/?page=1&limit=10&sort_by=updated_at&sort_order=desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "updated_at",
+                  "description": "Aceita: name, created_at, updated_at. Default: created_at."
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Lista paginada de API Keys ativas.\n\n**Tier:** admin\n\nO teste desta requisicao salva o id do primeiro item em `{{key_id}}`, usado pelas requisicoes de detalhe, update, rotate e delete."
+          },
+          "response": []
+        },
+        {
+          "name": "Get API Key by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/{{key_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                "{{key_id}}",
+                ""
+              ]
+            },
+            "description": "Detalhe de uma API Key.\n\n**Tier:** admin\n\nRode **Get All API Keys** antes para popular `{{key_id}}`. Os campos `created_by` e `updated_by` retornam email e preferred name, nao o UUID. O segredo nunca e retornado: apenas `prefix` e `last_four` para exibicao mascarada."
+          },
+          "response": []
+        },
+        {
+          "name": "Update API Key",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"CI pipeline renomeada\",\n  \"description\": \"Nova descricao da chave.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/{{key_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                "{{key_id}}",
+                ""
+              ]
+            },
+            "description": "Atualiza nome e/ou descricao da API Key.\n\n**Tier:** admin\n\nEnviar valores identicos aos ja gravados retorna **400 (nada mudou)**, nao 200. Ambos os campos sao opcionais, mas ao menos um deve vir no corpo; `description: null` limpa a descricao."
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate API Key",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/{{key_id}}/rotate/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                "{{key_id}}",
+                "rotate",
+                ""
+              ]
+            },
+            "description": "Gera um segredo novo para a chave, revogando o anterior **na hora e sem periodo de graca**.\n\n**Tier:** admin\n\nNao recebe corpo. Retorna o novo segredo uma unica vez. Qualquer cliente ainda usando o segredo antigo passa a receber 401 assim que esta chamada completa, entao coordene o rollout antes de rotacionar."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete API Key",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/key/{{key_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "key",
+                "{{key_id}}",
+                ""
+              ]
+            },
+            "description": "Soft delete da API Key (`is_active = false`).\n\n**Tier:** admin\n\nA linha permanece no Postgres, mas a chave para de autenticar imediatamente: o cache e invalidado junto."
+          },
+          "response": []
+        }
+      ],
+      "description": "API Keys. CRUD exclusivo de admin, hash HMAC-SHA256, soft delete."
+    },
+    {
+      "name": "Knowledge",
+      "item": [
+        {
+          "name": "Create Knowledge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Machine Learning Fundamentals\",\n  \"description\": \"A collection of resources on machine learning fundamentals.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                ""
+              ]
+            },
+            "description": "Cria uma base de conhecimento e dispara notificacao broadcast para os managers.\n\n**Tier:** manager\n\nNome duplicado entre as bases ativas e rejeitado. Rode esta requisicao se quiser gerar dados para testar o modulo de Notification."
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Knowledges",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"retorna 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const items = pm.response.json()?.details?.data?.knowledge_bases ?? [];",
+                  "if (items.length > 0) {",
+                  "    pm.collectionVariables.set(\"knowledge_id\", items[0].id);",
+                  "    console.log(\"knowledge_id =\", items[0].id);",
+                  "} else {",
+                  "    console.warn(\"Nenhuma knowledge ativa. Rode o Create Knowledge antes.\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/?page=1&limit=10&sort_by=updated_at&sort_order=desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Lista paginada de bases de conhecimento ativas.\n\n**Tier:** manager\n\nO teste salva o id do primeiro item em `{{knowledge_id}}`. O campo da lista na resposta e `knowledge_bases`."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Knowledge",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Machine Learning Fundamentals v2\",\n  \"description\": \"Descricao atualizada.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/{{knowledge_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "{{knowledge_id}}",
+                ""
+              ]
+            },
+            "description": "Atualiza nome e/ou descricao da base de conhecimento.\n\n**Tier:** manager\n\nValores identicos aos ja gravados retornam 400 (nada mudou)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Knowledge",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/knowledge/{{knowledge_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "knowledge",
+                "{{knowledge_id}}",
+                ""
+              ]
+            },
+            "description": "Soft delete da base de conhecimento.\n\n**Tier:** manager"
+          },
+          "response": []
+        }
+      ],
+      "description": "Bases de conhecimento. CRUD canonico do projeto, com notificacao broadcast para managers."
+    },
+    {
+      "name": "Notification",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "event": [
+            {
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"retorna 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const items = pm.response.json()?.details?.data?.notifications ?? [];",
+                  "if (items.length > 0) {",
+                  "    pm.collectionVariables.set(\"notification_id\", items[0].id);",
+                  "    console.log(\"notification_id =\", items[0].id);",
+                  "} else {",
+                  "    console.warn(\"Nenhuma notificacao. Crie uma Knowledge para disparar um broadcast.\");",
+                  "}"
+                ]
+              },
+              "listen": "test"
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notification/?page=1&limit=10&sort_by=created_at&sort_order=desc",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notification",
+                ""
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "created_at",
+                  "description": "Aceita: created_at, is_read."
+                },
+                {
+                  "key": "sort_order",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Lista paginada das notificacoes do usuario autenticado.\n\n**Tier:** user\n\nO teste salva o id do primeiro item em `{{notification_id}}`."
+          },
+          "response": []
+        },
+        {
+          "name": "Read Notification",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notification/{{notification_id}}/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notification",
+                "{{notification_id}}",
+                ""
+              ]
+            },
+            "description": "Marca a notificacao como lida.\n\n**Tier:** user\n\nNao recebe corpo. Rode **Get All Notifications** antes para popular `{{notification_id}}`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Notificacoes por usuario e broadcast, entregues tambem via WebSocket."
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                ""
+              ]
+            },
+            "description": "Liveness da aplicacao.\n\n**Tier:** publico\n\nRepare que o caminho **nao** tem o prefixo `/api/v1`."
+          },
+          "response": []
+        },
+        {
+          "name": "Alembic Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/alembic-version/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alembic-version",
+                ""
+              ]
+            },
+            "description": "Revisao atual do schema do banco segundo o Alembic.\n\n**Tier:** admin"
+          },
+          "response": []
+        }
+      ],
+      "description": "Liveness e versao do schema."
+    },
+    {
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "WebSocket Connect (referencia)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/websocket/connect/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "websocket",
+                "connect",
+                ""
+              ]
+            },
+            "description": "**Esta requisicao nao funciona no Postman como HTTP.**\n\nO endpoint real e um handshake WebSocket em `ws://localhost:8000/api/v1/websocket/connect/`. O que aparece no OpenAPI e apenas um stub de referencia declarado com `no_authentication`, por isso o caminho HTTP nao autentica nada.\n\nPara testar de verdade, crie uma requisicao do tipo **WebSocket** no Postman (New > WebSocket) apontando para a URL `ws://`, garantindo que:\n\n- o cookie `access_token` esteja presente (rode o Login antes);\n- o header `Origin` esteja em `SECURITY_ALLOW_ORIGINS`, porque `authenticate_websocket` valida a origem **antes** do token e o CORSMiddleware nao cobre o handshake."
+          },
+          "response": []
+        }
+      ],
+      "description": "Entrega de notificacoes em tempo real."
+    },
+    {
+      "name": "Example",
+      "item": [
+        {
+          "name": "Create Example",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/example/",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "example",
+                ""
+              ]
+            },
+            "description": "Endpoint de demonstracao do modulo de exemplo.\n\n**Tier:** publico\n\nO modulo `example` e apenas scaffolding de referencia e nao faz parte do dominio do produto."
+          },
+          "response": []
+        }
+      ],
+      "description": "Modulo de referencia usado como scaffolding. Nao faz parte do dominio do produto."
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "default",
+      "description": "Base URL da API. Docker expoe 8000; uvicorn local usa 8000 tambem."
+    },
+    {
+      "key": "admin_email",
+      "value": "",
+      "type": "secret",
+      "description": "SECURITY_ADMIN_EMAIL do .env do projeto."
+    },
+    {
+      "key": "admin_password",
+      "value": "",
+      "type": "secret",
+      "description": "SECURITY_ADMIN_PASSWORD do .env do projeto."
+    },
+    {
+      "key": "key_id",
+      "value": "",
+      "type": "default",
+      "description": "Preenchido automaticamente pelo teste do Get All API Keys."
+    },
+    {
+      "key": "knowledge_id",
+      "value": "",
+      "type": "default",
+      "description": "Preenchido automaticamente pelo teste do Get All Knowledges."
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "default",
+      "description": "Preenchido automaticamente pelo teste do Get All Notifications."
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,13 +10,13 @@ from app.modules.health.infrastructure.repositories import PostgresHealthReposit
 
 
 def get_health_repository(
-    session: AsyncSession = Depends(get_async_session),
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> IHealthRepository:
     return PostgresHealthRepository(session=session)
 
 
 def get_health_use_cases(
-    repository: IHealthRepository = Depends(get_health_repository),
+    repository: Annotated[IHealthRepository, Depends(get_health_repository)],
 ) -> HealthUseCases:
     return HealthUseCases(
         repository=repository,

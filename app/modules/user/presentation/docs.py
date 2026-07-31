@@ -1,11 +1,8 @@
 from http import HTTPStatus
 
-from fastapi import Security
-
-from app.core.security import authenticate_user, no_authentication
-from app.modules.shared.application.enums import ResponseMessages, Role
+from app.modules.shared.domain.enums import ResponseMessages, Role
 from app.modules.shared.presentation.schemas import StandardResponse
-from app.modules.user.application.enums import Gender
+from app.modules.user.domain.enums import Gender
 from app.modules.user.presentation.schemas import CreateResponse, MeResponse
 
 # MODULE DOCS
@@ -217,8 +214,8 @@ router_docs = {
 # ENDPOINT DOCS
 create_docs = {
     "summary": "Endpoint to create a new user.",
-    "description": "Create a new user in the system with the provided details.",
-    "dependencies": [Security(no_authentication)],
+    "description": "Create a new user in the system with the provided details. "
+    "Public endpoint — no authentication is required.",
     "response_description": "The response contains only results metadata without user details.",
     "status_code": HTTPStatus.CREATED,
     "response_model": CreateResponse,
@@ -254,7 +251,6 @@ create_docs = {
 me_docs = {
     "summary": "Endpoint to get the details of the authenticated user.",
     "description": "Get the details of the authenticated user.",
-    "dependencies": [Security(authenticate_user)],
     "response_description": "The response contains the details of the authenticated user.",
     "status_code": HTTPStatus.OK,
     "response_model": MeResponse,

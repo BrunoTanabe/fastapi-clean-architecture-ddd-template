@@ -1,129 +1,135 @@
-from typing import Optional
-
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.modules.authentication.application.exceptions import AuthenticationException
 from app.modules.authentication.application.interfaces import IAuthenticationRepository
-from app.modules.authentication.domain.entities import (
-    Session,
+from app.modules.authentication.domain.entities import Authentication
+from app.modules.authentication.application.mappers import (
+    model_entity_mapper,
+    entity_model_mapper,
+    sync_entity_from_model,
 )
-from app.modules.authentication.domain.mappers import model_entity_mapper
 from app.modules.authentication.infrastructure.models import (
-    SessionModel,
+    AuthenticationModel,
     RefreshTokenModel,
     AccessTokenModel,
 )
-from app.modules.authentication.presentation.exceptions import AuthenticationException
-from app.modules.shared.presentation.exceptions import StandardException
+from app.modules.shared.application.exceptions import StandardException
 
 
-class PostgresSessionRepository(IAuthenticationRepository):
+class PostgresAuthenticationRepository(IAuthenticationRepository):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     # CREATE
-    async def create(self, session: Session) -> None:
+    async def create(self, authentication: Authentication) -> Authentication:
         try:
             logger.info(
-                f"Creating session for user {session.user.email.__str__()} with device {session.device} and user agent {session.user_agent} in database."
+                f"Creating authentication for user {authentication.user.id} with device {authentication.device} in database."
             )
 
-            db_session: SessionModel = await model_entity_mapper(session)
+            db_authentication: AuthenticationModel = entity_model_mapper(authentication)
 
-            self.session.add(db_session)
+            self.session.add(db_authentication)
             await self.session.flush()
 
-            logger.info(
-                f"Session created successfully for user {session.user.email.__str__()} with device {session.device} and user agent {session.user_agent} in database."
+            authentication: Authentication = sync_entity_from_model(
+                authentication, db_authentication
             )
-            return None
+
+            logger.info(
+                f"Authentication created successfully for user {authentication.user.id} with device {authentication.device} in database. Authentication identifier: {authentication.id}."
+            )
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
-                "An error occurred in the create session repository."
+                "An error occurred in the create authentication repository."
             )
             raise AuthenticationException()
 
     # READ
     async def get_by_user_id_agent_and_device(
-        self, session: Session
-    ) -> Optional[Session]:
+        self, authentication: Authentication
+    ) -> Authentication | None:
         try:
             logger.info(
-                f"Getting session by user id, agent and device for user {session.user.email} with device {session.device} and user agent {session.user_agent} from database."
+                f"Getting authentication by user id, agent and device for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} from database."
             )
 
             statement = (
-                select(SessionModel)
+                select(AuthenticationModel)
                 .options(
-                    joinedload(SessionModel.user),
-                    joinedload(SessionModel.refresh_token).joinedload(
+                    joinedload(AuthenticationModel.user),
+                    joinedload(AuthenticationModel.refresh_token).joinedload(
                         RefreshTokenModel.access_token
                     ),
                 )
                 .where(
-                    SessionModel.user_id == session.user.id,
-                    SessionModel.user_agent == session.user_agent,
-                    SessionModel.device == session.device,
-                    SessionModel.blacklisted.is_(False),
+                    AuthenticationModel.user_id == authentication.user.id,
+                    AuthenticationModel.user_agent == authentication.user_agent,
+                    AuthenticationModel.device == authentication.device,
+                    AuthenticationModel.blacklisted.is_(False),
                 )
             )
 
             result = await self.session.execute(statement)
-            session_model: Optional[SessionModel] = result.scalar_one_or_none()
+            authentication_model: AuthenticationModel | None = (
+                result.scalar_one_or_none()
+            )
 
-            if session_model is None:
+            if authentication_model is None:
                 logger.info(
-                    f"No session found for user {session.user.email} with the given user agent and device."
+                    f"No authentication found for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent}."
                 )
                 return None
 
-            session: Session = await model_entity_mapper(session_model)
+            authentication: Authentication = model_entity_mapper(authentication_model)
 
             logger.info(
-                f"Session retrieved successfully for user {session.user.email} with device {session.device} and user agent {session.user_agent} from database."
+                f"Authentication retrieved successfully for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} from database. Authentication identifier: {authentication.id}."
             )
-            return session
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
-                "An error occurred in the get session by user agent and device repository."
+                "An error occurred in the get authentication by user agent and device repository."
             )
-            raise
+            raise AuthenticationException()
 
-    async def get_access_token_by_session(
+    async def get_access_token_by_authentication(
         self,
-        session: Session,
-    ) -> Optional[Session]:
+        authentication: Authentication,
+    ) -> Authentication | None:
         try:
             logger.info(
-                "Getting session by access token hashed_jti and device from database."
+                f"Getting authentication by access token hashed_jti {authentication.refresh_token.access_token.hashed_jti} and user identifier {authentication.user.id} and user agent {authentication.user_agent} from database."
             )
 
             conditions = [
                 AccessTokenModel.hashed_jti
-                == session.refresh_token.access_token.hashed_jti,
-                SessionModel.user_agent == session.user_agent,
-                SessionModel.user_id == session.user.id,
+                == authentication.refresh_token.access_token.hashed_jti,
+                AuthenticationModel.user_agent == authentication.user_agent,
+                AuthenticationModel.user_id == authentication.user.id,
                 AccessTokenModel.revoked.is_(False),
                 RefreshTokenModel.revoked.is_(False),
-                SessionModel.blacklisted.is_(False),
+                AuthenticationModel.blacklisted.is_(False),
             ]
 
-            if session.device is not None:
-                conditions.append(SessionModel.device == session.device)
+            if authentication.device is not None:
+                conditions.append(AuthenticationModel.device == authentication.device)
 
             statement = (
-                select(SessionModel)
-                .join(SessionModel.refresh_token)
+                select(AuthenticationModel)
+                .join(AuthenticationModel.refresh_token)
                 .join(RefreshTokenModel.access_token)
                 .options(
-                    joinedload(SessionModel.user),
-                    joinedload(SessionModel.refresh_token).joinedload(
+                    joinedload(AuthenticationModel.user),
+                    joinedload(AuthenticationModel.refresh_token).joinedload(
                         RefreshTokenModel.access_token
                     ),
                 )
@@ -131,54 +137,56 @@ class PostgresSessionRepository(IAuthenticationRepository):
             )
 
             result = await self.session.execute(statement)
-            session_model: Optional[SessionModel] = result.scalar_one_or_none()
+            authentication_model: AuthenticationModel | None = (
+                result.scalar_one_or_none()
+            )
 
-            if session_model is None:
+            if authentication_model is None:
                 logger.info(
-                    "No session found for the given access token hashed_jti and device."
+                    f"No authentication found for access token hashed_jti {authentication.refresh_token.access_token.hashed_jti} and user identifier {authentication.user.id} and user agent {authentication.user_agent} in database."
                 )
                 return None
 
-            session: Session = await model_entity_mapper(session_model)
+            authentication: Authentication = model_entity_mapper(authentication_model)
 
             logger.info(
-                f"Session retrieved successfully for access token with ID {session.refresh_token.access_token.id} and device {session.device}."
+                f"Authentication retrieved successfully for access token with ID {authentication.id} and user identifier {authentication.user.id} and user agent {authentication.user_agent} in database. Authentication identifier: {authentication.id}."
             )
-            return session
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
                 "An error occurred in the get access token by hashed_jti repository."
             )
-            raise
+            raise AuthenticationException()
 
-    async def get_refresh_token_by_session(
+    async def get_refresh_token_by_authentication(
         self,
-        session: Session,
-    ) -> Optional[Session]:
+        authentication: Authentication,
+    ) -> Authentication | None:
         try:
             logger.info(
-                "Getting session by refresh token hashed_jti and device from database."
+                f"Getting authentication by refresh token hashed_jti {authentication.refresh_token.hashed_jti} and user identifier {authentication.user.id} and user agent {authentication.user_agent} from database."
             )
 
             conditions = [
-                RefreshTokenModel.hashed_jti == session.refresh_token.hashed_jti,
-                SessionModel.user_agent == session.user_agent,
-                SessionModel.user_id == session.user.id,
+                RefreshTokenModel.hashed_jti == authentication.refresh_token.hashed_jti,
+                AuthenticationModel.user_agent == authentication.user_agent,
+                AuthenticationModel.user_id == authentication.user.id,
                 RefreshTokenModel.revoked.is_(False),
-                SessionModel.blacklisted.is_(False),
+                AuthenticationModel.blacklisted.is_(False),
             ]
 
-            if session.device is not None:
-                conditions.append(SessionModel.device == session.device)
+            if authentication.device is not None:
+                conditions.append(AuthenticationModel.device == authentication.device)
 
             statement = (
-                select(SessionModel)
-                .join(SessionModel.refresh_token)
+                select(AuthenticationModel)
+                .join(AuthenticationModel.refresh_token)
                 .options(
-                    joinedload(SessionModel.user),
-                    joinedload(SessionModel.refresh_token).joinedload(
+                    joinedload(AuthenticationModel.user),
+                    joinedload(AuthenticationModel.refresh_token).joinedload(
                         RefreshTokenModel.access_token
                     ),
                 )
@@ -186,79 +194,82 @@ class PostgresSessionRepository(IAuthenticationRepository):
             )
 
             result = await self.session.execute(statement)
-            session_model: Optional[SessionModel] = result.scalar_one_or_none()
+            authentication_model: AuthenticationModel | None = (
+                result.scalar_one_or_none()
+            )
 
-            if session_model is None:
+            if authentication_model is None:
                 logger.info(
-                    "No session found for the given refresh token hashed_jti and device."
+                    f"No authentication found for refresh token hashed_jti {authentication.refresh_token.hashed_jti} and user identifier {authentication.user.id} and user agent {authentication.user_agent} in database."
                 )
                 return None
 
-            session: Session = await model_entity_mapper(session_model)
+            authentication: Authentication = model_entity_mapper(authentication_model)
 
             logger.info(
-                f"Session retrieved successfully for refresh token with ID {session.id} and device {session.device}."
+                f"Authentication retrieved successfully for refresh token with ID {authentication.id} and user identifier {authentication.user.id} and user agent {authentication.user_agent} in database. Authentication identifier: {authentication.id}."
             )
-            return session
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
-                "An error occurred in the get access token by hashed_jti repository."
+                "An error occurred in the get refresh token by hashed_jti repository."
             )
-            raise
+            raise AuthenticationException()
 
     # UPDATE
-    async def update(self, session: Session) -> None:
+    async def update(self, authentication: Authentication) -> Authentication:
         try:
             logger.info(
-                f"Updating session {session.id} for user {session.user.email.__str__()} "
-                f"with device {session.device} and user agent {session.user_agent} in database."
+                f"Updating authentication {authentication.id} for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} in database."
             )
 
-            db_session: SessionModel = await model_entity_mapper(session)
+            db_authentication: AuthenticationModel = entity_model_mapper(authentication)
 
-            await self.session.merge(db_session)
+            merged: AuthenticationModel = await self.session.merge(db_authentication)
             await self.session.flush()
 
-            logger.info(
-                f"Session {session.id} updated successfully for user {session.user.email.__str__()} "
-                f"with device {session.device} and user agent {session.user_agent} in database."
+            authentication: Authentication = sync_entity_from_model(
+                authentication, merged
             )
-            return None
+
+            logger.info(
+                f"Authentication {authentication.id} updated successfully for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} in database."
+            )
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
-                "An error occurred in the update session repository."
+                "An error occurred in the update authentication repository."
             )
             raise AuthenticationException()
 
     # DELETE
-    async def delete(self, session: Session) -> None:
+    async def delete(self, authentication: Authentication) -> Authentication:
         try:
             logger.info(
-                f"Revoking session {session.id} for user {session.user.email.__str__()} "
-                f"with device {session.device} and user agent {session.user_agent} in database."
+                f"Persisting revoked authentication {authentication.id} for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} in database."
             )
 
-            session.refresh_token.revoke()
-            session.refresh_token.access_token.revoke()
+            db_authentication: AuthenticationModel = entity_model_mapper(authentication)
 
-            db_session: SessionModel = await model_entity_mapper(session)
-
-            await self.session.merge(db_session)
+            merged: AuthenticationModel = await self.session.merge(db_authentication)
             await self.session.flush()
 
-            logger.info(
-                f"Session {session.id} revoked successfully for user {session.user.email.__str__()} "
-                f"with device {session.device} and user agent {session.user_agent} in database."
+            authentication: Authentication = sync_entity_from_model(
+                authentication, merged
             )
-            return None
+
+            logger.info(
+                f"Authentication {authentication.id} revoked successfully for user {authentication.user.id} with device {authentication.device} and user agent {authentication.user_agent} in database."
+            )
+            return authentication
         except StandardException:
             raise
         except Exception as e:
             logger.opt(exception=e).error(
-                "An error occurred in the update session repository."
+                "An error occurred in the delete authentication repository."
             )
             raise AuthenticationException()

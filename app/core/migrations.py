@@ -5,10 +5,10 @@ from loguru import logger
 from sqlalchemy import inspect, text
 
 from app.core.database import pg_engine
-from app.modules.shared.presentation.exceptions import StandardException
+from app.modules.shared.application.exceptions import StandardException
 
 
-async def init_alembic_management() -> None:
+def init_alembic_management() -> None:
     try:
         logger.info("Checking Alembic migration status...")
 
@@ -29,7 +29,7 @@ async def init_alembic_management() -> None:
             logger.info("Alembic management found. Checking for pending migrations...")
 
             with pg_engine.connect() as conn:
-                result = conn.execute(text("SELECT version_num FROM alembic_version"))
+                result = conn.execute(text("SELECT version_num FROM alembic_version"))  # noqa
                 current_revision = result.scalar()
 
             script = ScriptDirectory.from_config(alembic_cfg)

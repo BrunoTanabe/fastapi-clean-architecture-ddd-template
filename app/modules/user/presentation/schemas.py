@@ -1,11 +1,11 @@
 import re
 from datetime import datetime, date
-from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
-from app.modules.shared.application.enums import ResponseMessages, Role
-from app.modules.user.application.enums import Gender
+from app.modules.shared.domain.enums import Role
+from app.modules.shared.presentation.schemas import CreateResponse as CreateResponse
+from app.modules.user.domain.enums import Gender
 
 
 # REQUEST
@@ -33,7 +33,7 @@ class CreateRequest(BaseModel):
         },
     )
 
-    preferred_name: Optional[str] = Field(
+    preferred_name: str | None = Field(
         title="Preferred Name (Optional)",
         description="The preferred name of the user.",
         max_length=100,
@@ -64,11 +64,9 @@ class CreateRequest(BaseModel):
         },
     )
 
-    email: str = Field(
+    email: EmailStr = Field(
         title="User Email (Required)",
         description="The email address of the user.",
-        min_length=3,
-        max_length=100,
         examples=["johndoe@domain.com", "jane.smith@email.com"],
         json_schema_extra={
             "example": "johndoe@domain.com",
@@ -76,7 +74,7 @@ class CreateRequest(BaseModel):
         },
     )
 
-    phone: Optional[str] = Field(
+    phone: str | None = Field(
         default=None,
         title="Phone (Optional)",
         description="The phone number of the user in international format (e.g., +555472664275).",
@@ -110,7 +108,7 @@ class CreateRequest(BaseModel):
 
     @field_validator("preferred_name")
     @classmethod
-    def validate_preferred_name(cls, request: Optional[str]) -> Optional[str]:
+    def validate_preferred_name(cls, request: str | None) -> str | None:
         if isinstance(request, str) and request.strip() == "":
             return None
         return request
@@ -126,21 +124,14 @@ class CreateRequest(BaseModel):
             raise ValueError("Birthdate cannot be before January 1, 1900.")
         return request
 
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, request: str) -> str:
-        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", request):
-            raise ValueError("Invalid email address.")
-        return request.lower()
-
     @field_validator("phone")
     @classmethod
-    def validate_phone(cls, request: Optional[str]) -> Optional[str]:
+    def validate_phone(cls, request: str | None) -> str | None:
         if request is None:
             return request
         if isinstance(request, str) and request.strip() == "":
             return None
-        stripped = re.sub(r"[\+\-\(\)]", "", request)
+        stripped = re.sub(r"[+\-()]", "", request)
         if not stripped.isdigit():
             raise ValueError(
                 "Phone number must contain only digits, '+', '-', '(' and ')'."
@@ -213,23 +204,6 @@ class CreateRequest(BaseModel):
 
 
 # RESPONSE
-class CreateResponse(BaseModel):
-    message: str = ResponseMessages.CREATED.value
-
-    model_config = ConfigDict(
-        title="CreateResponse",
-        str_strip_whitespace=True,
-        extra="forbid",
-        validate_default=True,
-        validate_assignment=True,
-        validate_return=True,
-        json_schema_extra={
-            "description": "Response model for creating a new user.",
-            "example": {"message": ResponseMessages.CREATED.value},
-        },
-    )
-
-
 class MeResponse(BaseModel):
     first_name: str = Field(
         title="First Name (Required)",
@@ -290,7 +264,7 @@ class MeResponse(BaseModel):
         },
     )
 
-    phone: Optional[str] = Field(
+    phone: str | None = Field(
         default=None,
         title="Phone (Optional)",
         description="The phone number of the user in international format (e.g., +555472664275).",

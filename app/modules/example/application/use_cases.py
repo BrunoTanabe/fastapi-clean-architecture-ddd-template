@@ -1,11 +1,11 @@
 from loguru import logger
 
 from app.modules.example.domain.entities import Example
-from app.modules.example.presentation.exceptions import (
+from app.modules.example.application.exceptions import (
     ExampleException,
 )
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.presentation.exceptions import (
+from app.modules.shared.application.exceptions import (
     StandardException,
     DomainException,
 )
@@ -13,7 +13,7 @@ from app.modules.shared.presentation.exceptions import (
 
 class ExampleUseCases:
     @staticmethod
-    async def hello(example: Example) -> Example:
+    def hello(example: Example) -> Example:
         try:
             logger.debug("Starting hello use case.")
 

@@ -1,0 +1,184 @@
+asyncapi: "2.6.0"
+
+info:
+  title: FastAPI Clean Architecture and DDD Template — WebSocket API
+  version: "1.0.0"
+  description: |
+    Real-time WebSocket channel for the FastAPI Clean Architecture and DDD Template.
+
+    ## Authentication
+    Authentication uses the **HTTP-only cookies** issued by
+    `POST /api/v1/authentication/login/`: `access_token` (a nested JWT — a JWS signed
+    with Ed25519, wrapped in a JWE encrypted with ECDH-ES + A256GCM) together with the
+    `device_id` cookie set by `DeviceIdMiddleware`. Both are sent automatically by the
+    browser on every same-origin request, including the WebSocket upgrade.
+
+    ## Origin validation
+    The server validates the `Origin` header against the configured
+    `SECURITY_ALLOW_ORIGINS` list. Connections from unlisted origins are rejected
+    with HTTP 403 before the handshake completes. The browser `CORSMiddleware` does
+    not cover the WebSocket handshake, so this guard lives in `authenticate_websocket`.
+
+    ## Connection lifecycle
+    1. Client initiates WebSocket upgrade to `/api/v1/websocket/connect/`.
+    2. Server validates the origin, then decodes the access-token cookie and loads the
+       authentication, checking that the session role matches the stored token permission.
+    3. Server accepts the connection — the socket is now open.
+    4. Server pushes messages as JSON frames whenever events occur.
+    5. Client can send any text frame to keep the connection alive (server ignores content).
+    6. Connection closes on logout, session expiry, or explicit `close()`.
+
+    ## Delivery scope
+    `ConnectionManager` holds connections in an in-memory dict on `app.state`, so fan-out
+    works within a single process only. Cross-worker delivery is future work.
+
+servers:
+  development:
+    url: ws://localhost:8000
+    protocol: ws
+    description: Local development server (uvicorn --reload).
+  production:
+    url: wss://{host}
+    protocol: wss
+    description: Production server (TLS required).
+    variables:
+      host:
+        description: Production hostname.
+        default: "example.com"
+
+channels:
+  /api/v1/websocket/connect/:
+    description: |
+      Persistent WebSocket channel for real-time server-push messages.
+
+      The client does **not** send structured messages — only keepalive text
+      frames if needed. All business messages flow **server → client**.
+    bindings:
+      ws:
+        headers:
+          type: object
+          properties:
+            Cookie:
+              type: string
+              description: >
+                HTTP-only cookies set by the login endpoint. `access_token` carries the
+                nested JWT and `device_id` identifies the device. Required — the
+                connection is rejected with 401 if absent or invalid.
+              example: "access_token=<nested-jwt>; device_id=<device>"
+            Origin:
+              type: string
+              description: >
+                Must match one of the allowed origins configured in
+                `SECURITY_ALLOW_ORIGINS`. Rejected with 403 otherwise.
+              example: "http://localhost:8000"
+          required:
+            - Cookie
+    subscribe:
+      operationId: onServerMessage
+      summary: Messages pushed by the server to the connected client.
+      message:
+        oneOf:
+          - $ref: "#/components/messages/NotificationMessage"
+
+components:
+  messages:
+    NotificationMessage:
+      name: NotificationMessage
+      title: Notification
+      summary: A personal notification pushed in real time to the authenticated user.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/WebSocketMessageResponse"
+      examples:
+        - name: KnowledgeCreated
+          summary: Knowledge base creation notification
+          payload:
+            message_type: notification
+            body:
+              id: "550e8400-e29b-41d4-a716-446655440000"
+              created_at: "2025-01-15T10:30:00Z"
+              notification_type: knowledge_created
+              title: "Knowledge base created"
+              body: "The knowledge base 'ML Fundamentals' was created successfully."
+              redirect_url: "https://app.example.com/knowledge/550e8400"
+        - name: SystemAlert
+          summary: System alert notification
+          payload:
+            message_type: notification
+            body:
+              id: "661f9511-f3ac-52e5-b827-557766551111"
+              created_at: "2025-01-16T08:00:00Z"
+              notification_type: system_alert
+              title: "System alert"
+              body: "Scheduled maintenance on 2025-02-01 at 02:00 UTC."
+              redirect_url: null
+
+  schemas:
+    WebSocketMessageResponse:
+      type: object
+      required:
+        - message_type
+        - body
+      properties:
+        message_type:
+          type: string
+          enum:
+            - notification
+          description: >
+            Discriminator that identifies the shape of `body`.
+            Future message types will be added here as the platform grows.
+          example: notification
+        body:
+          description: >
+            Serialized payload. Structure varies by `message_type` — see
+            `NotificationBody` for the current supported type.
+          oneOf:
+            - $ref: "#/components/schemas/NotificationBody"
+
+    NotificationBody:
+      type: object
+      title: NotificationBody
+      description: Payload delivered when `message_type` is `notification`.
+      required:
+        - id
+        - created_at
+        - notification_type
+        - title
+        - body
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the notification.
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp (timezone aware) when the notification was created.
+          example: "2025-01-15T10:30:00Z"
+        notification_type:
+          type: string
+          enum:
+            - knowledge_created
+            - knowledge_updated
+            - knowledge_deleted
+            - system_alert
+          description: Event category that triggered this notification.
+          example: knowledge_created
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+          description: Short human-readable title.
+          example: "Knowledge base created"
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Full text content of the notification.
+          example: "The knowledge base 'ML Fundamentals' was created successfully."
+        redirect_url:
+          type: string
+          nullable: true
+          description: Optional deep-link URL for direct navigation from the notification.
+          example: "https://app.example.com/knowledge/550e8400"

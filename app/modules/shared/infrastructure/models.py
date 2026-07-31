@@ -8,12 +8,11 @@ from app.modules.shared.application.utils import BRASILIA_TZ
 
 
 class Base(DeclarativeBase):
-    pass
+    __mapper_args__ = {"eager_defaults": True}
 
 
 class BaseModel(Base):
     __abstract__ = True
-    __mapper_args__ = {"eager_defaults": True}
 
     id: Mapped[UUID] = mapped_column(
         SQUID(as_uuid=True),
@@ -24,7 +23,11 @@ class BaseModel(Base):
     )
 
     is_active: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="true"
+        Boolean,
+        name="is_active",
+        comment="Indicates whether the record is active",
+        default=True,
+        server_default="true",
     )
 
     created_at: Mapped[datetime] = mapped_column(

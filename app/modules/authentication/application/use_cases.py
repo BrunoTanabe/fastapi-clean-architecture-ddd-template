@@ -2,28 +2,21 @@ from datetime import datetime, timedelta
 
 from loguru import logger
 
-from app.core.security import (
-    verify_password,
-    generate_tokens,
-    hash_tokens,
-)
 from app.core.settings import settings
+from app.modules.authentication.application.exceptions import (
+    AuthenticationException,
+    InvalidCredentialsException,
+)
 from app.modules.authentication.application.interfaces import (
     IAuthenticationRepository,
+    IAuthenticationCache,
+    ITokenService,
 )
-from app.modules.authentication.domain.entities import (
-    Session,
-    RefreshToken,
-    AccessToken,
-)
-from app.modules.authentication.presentation.exceptions import (
-    AuthenticationException,
-    SessionInvalidCredentialsException,
-)
+from app.modules.authentication.domain.entities import Authentication
 from app.modules.shared.application.use_cases import SharedUseCases
 from app.modules.shared.application.utils import BRASILIA_TZ
 from app.modules.shared.domain.entities import DomainError
-from app.modules.shared.presentation.exceptions import (
+from app.modules.shared.application.exceptions import (
     StandardException,
     DomainException,
 )
@@ -33,85 +26,89 @@ from app.modules.user.domain.entities import User
 class AuthenticationUseCases:
     def __init__(
         self,
+        cache: IAuthenticationCache,
         repository: IAuthenticationRepository,
         shared_service: SharedUseCases,
+        token_service: ITokenService,
     ) -> None:
+        self.cache = cache
         self.repository = repository
         self.shared_service = shared_service
+        self.token_service = token_service
+        self.shared_service.disable_exceptions()
 
     # CREATE
-    async def login(self, session: Session) -> Session:
+    async def login(self, authentication: Authentication) -> Authentication:
         try:
             logger.debug(
-                f"Initializing user login use case for user: {session.user.email} in device: {session.device}."
+                f"Initializing user login use case for user: {authentication.user.censored_email} in device: {authentication.device}. The user/authentication identifier has not yet been retrieved."
             )
 
-            db_user: User = await self.shared_service.get_user_by_email(session.user)
+            db_user: User | None = await self.shared_service.get_user_by_email(
+                authentication.user
+            )
 
-            if not await verify_password(
-                session.user.password, db_user.hashed_password
+            if not db_user:
+                logger.info(
+                    f"User with email {authentication.user.censored_email} not found, raising exception. The user identifier not found."
+                )
+                raise InvalidCredentialsException()
+
+            if not await self.token_service.verify_password(
+                authentication.user.password, db_user.hashed_password
             ):
-                logger.info("User password does not match, raising exception.")
-                raise SessionInvalidCredentialsException()
+                logger.info(
+                    f"Invalid password for user {authentication.user.id}, raising exception."
+                )
+                raise InvalidCredentialsException()
 
-            session.user = db_user
-            session_from_db: Session = (
-                await self.repository.get_by_user_id_agent_and_device(session)
+            authentication.user = db_user
+            authentication_from_db = (
+                await self.repository.get_by_user_id_agent_and_device(authentication)
             )
 
-            refresh_expires_at = datetime.now(BRASILIA_TZ) + timedelta(
+            now = datetime.now(BRASILIA_TZ)
+            refresh_expires_at = now + timedelta(
                 days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
             )
-            access_expires_at = datetime.now(BRASILIA_TZ) + timedelta(
+            access_expires_at = now + timedelta(
                 minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
             )
 
-            if session_from_db:
+            if authentication_from_db:
                 logger.debug(
-                    f"Existing session found for user: {session.user.email} in device: {session.device} with agent: {session.user_agent}. Updating session."
+                    f"Existing authentication found for user: {authentication.user.id} in device: {authentication.device}. Renewing tokens. Authentication identifier: {authentication_from_db.id}."
                 )
 
-                session_from_db.update_last_updated_at()
+                await self.cache.delete_by_access_token(authentication_from_db)
+                await self.cache.delete_by_refresh_token(authentication_from_db)
 
-                session_from_db.refresh_token.expires_at = refresh_expires_at
-                session_from_db.refresh_token.generate_updated_at()
-                session_from_db.refresh_token.update_previous_hashed_jti()
-                session_from_db.refresh_token.activate()
-
-                session_from_db.refresh_token.access_token.expires_at = (
-                    access_expires_at
+                authentication = authentication_from_db.renew_tokens(
+                    now, refresh_expires_at, access_expires_at
                 )
-                session_from_db.refresh_token.access_token.generate_created_at()
-                session_from_db.refresh_token.access_token.update_previous_hashed_jti()
-                session_from_db.refresh_token.access_token.activate()
-
-                session: Session = await generate_tokens(session_from_db)
-                session: Session = await hash_tokens(session)
-                session.refresh_token.access_token.permission = session.user.role
-
-                await self.repository.update(session)
             else:
                 logger.debug(
-                    f"No existing session found for user: {session.user.email} in device: {session.device} with agent: {session.user_agent}. Creating new session."
+                    f"No existing authentication found for user: {authentication.user.id} in device: {authentication.device}. Creating new authentication."
+                )
+                authentication = authentication.create_tokens(
+                    now, refresh_expires_at, access_expires_at
                 )
 
-                session.refresh_token = RefreshToken(
-                    expires_at=refresh_expires_at,
-                    access_token=AccessToken(expires_at=access_expires_at),
-                )
+            authentication = await self.token_service.generate(authentication)
+            authentication = await self.token_service.hash_tokens(authentication)
+            authentication.refresh_token.access_token.permission = (
+                authentication.user.role
+            )
 
-                session.refresh_token.generate_created_at()
-                session.refresh_token.generate_updated_at()
-                session.refresh_token.access_token.generate_created_at()
+            if authentication_from_db:
+                await self.repository.update(authentication)
+            else:
+                await self.repository.create(authentication)
 
-                session: Session = await generate_tokens(session)
-                session: Session = await hash_tokens(session)
-                session.refresh_token.access_token.permission = session.user.role
-
-                await self.repository.create(session)
-
-            logger.debug(f"User {session.user.email} logged in successfully.")
-            return session
+            logger.debug(
+                f"User {authentication.user.id} logged in successfully in device: {authentication.device}. Authentication identifier: {authentication.id}."
+            )
+            return authentication
         except StandardException:
             raise
         except DomainError as e:
@@ -123,28 +120,33 @@ class AuthenticationUseCases:
             raise AuthenticationException()
 
     # UPDATE
-    async def refresh(self, session: Session) -> Session:
+    async def refresh(self, authentication: Authentication) -> Authentication:
         try:
             logger.debug(
-                f"Initializing user refresh tokens use case for user: {session.user.email} in device: {session.device}."
+                f"Initializing user refresh tokens use case for user: {authentication.user.id} in device: {authentication.device}."
             )
 
-            session.refresh_token.generate_updated_at()
-            session.refresh_token.update_previous_hashed_jti()
+            await self.cache.delete_by_access_token(authentication)
+            await self.cache.delete_by_refresh_token(authentication)
 
-            session.refresh_token.access_token.expires_at = datetime.now(
-                BRASILIA_TZ
-            ) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-            session.refresh_token.access_token.generate_created_at()
-            session.refresh_token.access_token.update_previous_hashed_jti()
+            now = datetime.now(BRASILIA_TZ)
+            access_expires_at = now + timedelta(
+                minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+            )
 
-            session: Session = await generate_tokens(session)
-            session: Session = await hash_tokens(session)
-            session.refresh_token.access_token.permission = session.user.role
-            await self.repository.update(session)
+            authentication = authentication.refresh_access_token(now, access_expires_at)
+            authentication = await self.token_service.generate(authentication)
+            authentication = await self.token_service.hash_tokens(authentication)
+            authentication.refresh_token.access_token.permission = (
+                authentication.user.role
+            )
 
-            logger.debug(f"User {session.user.email} refreshed tokens successfully.")
-            return session
+            await self.repository.update(authentication)
+
+            logger.debug(
+                f"User {authentication.user.id} refreshed tokens successfully."
+            )
+            return authentication
         except StandardException:
             raise
         except DomainError as e:
@@ -156,17 +158,22 @@ class AuthenticationUseCases:
             raise AuthenticationException()
 
     # DELETE
-    async def logout(self, session: Session) -> Session:
+    async def logout(self, authentication: Authentication) -> Authentication:
         try:
             logger.debug(
-                f"Initializing user logout use case for user: {session.user.email} in device: {session.device}."
+                f"Initializing user logout use case for user: {authentication.user.id} in device: {authentication.device}."
             )
 
-            session.refresh_token.generate_updated_at()
-            await self.repository.delete(session)
+            authentication.revoke(datetime.now(BRASILIA_TZ))
+            await self.repository.delete(authentication)
 
-            logger.debug(f"User {session.user.email} refreshed tokens successfully.")
-            return session
+            await self.cache.delete_by_access_token(authentication)
+            await self.cache.delete_by_refresh_token(authentication)
+
+            logger.debug(
+                f"User {authentication.user.id} logged out successfully from device: {authentication.device}."
+            )
+            return authentication
         except StandardException:
             raise
         except DomainError as e:
