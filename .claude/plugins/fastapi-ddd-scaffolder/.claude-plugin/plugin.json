@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "fastapi-ddd-scaffolder",
+  "displayName": "FastAPI DDD Scaffolder",
+  "version": "4.0.0",
+  "description": "Scaffolding, auditing, migration, and testing skills for the FastAPI Clean Architecture and DDD Template. Generates entities, value objects, exceptions, ORM models, Pydantic schemas, mappers, repositories, Redis caches, services, use cases, OpenAPI docs, routers, migrations, data seeds, settings, tests, and whole modules; registers routers and security allowlists; audits convention compliance; and keeps its own documentation in sync with the code. Ships a ruff PostToolUse hook and a read-only ddd-reviewer agent.",
+  "author": {
+    "name": "Bruno Tanabe"
+  },
+  "license": "MIT",
+  "keywords": [
+    "fastapi",
+    "clean-architecture",
+    "ddd",
+    "scaffolding",
+    "sqlalchemy",
+    "pydantic",
+    "alembic",
+    "redis",
+    "python"
+  ]
+}
