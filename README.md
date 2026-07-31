@@ -1026,21 +1026,21 @@ pydantic-settings. Access it through the `settings` singleton — never `os.envi
 
 #### Application
 
-| Key | Example | Description |
-|---|---|---|
+| Key | Example                                       | Description |
+|---|-----------------------------------------------|---|
 | `APPLICATION_TITLE` | `FastAPI Clean Architecture and DDD Template` | OpenAPI title |
-| `APPLICATION_SUMMARY` | *(text)* | OpenAPI summary |
-| `APPLICATION_DESCRIPTION` | *(markdown)* | OpenAPI description |
-| `APPLICATION_VERSION` | `1.0.0` | OpenAPI version |
-| `APPLICATION_CONTACT_NAME` | `Bruno Tanabe` | OpenAPI contact |
-| `APPLICATION_CONTACT_URL` | *(url)* | OpenAPI contact |
-| `APPLICATION_CONTACT_EMAIL` | *(email)* | OpenAPI contact |
-| `APPLICATION_CONTACT_PHONE` | *(phone)* | OpenAPI contact |
-| `APPLICATION_PORT` | `8000` | Host port |
-| `APPLICATION_ENVIRONMENT` | `development` | `development` \| `homolog` \| `production` |
-| `APPLICATION_CONNECT_TIMEOUT_SECONDS` | `30` | Connection timeout |
-| `APPLICATION_URL` | `http://localhost:8000` | Public base URL |
-| `APPLICATION_TABLE_PREFIX` | project slug | Prefix on every table name |
+| `APPLICATION_SUMMARY` | *(text)*                                      | OpenAPI summary |
+| `APPLICATION_DESCRIPTION` | *(markdown)*                                  | OpenAPI description |
+| `APPLICATION_VERSION` | `3.0.0`                                       | OpenAPI version |
+| `APPLICATION_CONTACT_NAME` | `Bruno Tanabe`                                | OpenAPI contact |
+| `APPLICATION_CONTACT_URL` | *(url)*                                       | OpenAPI contact |
+| `APPLICATION_CONTACT_EMAIL` | *(email)*                                     | OpenAPI contact |
+| `APPLICATION_CONTACT_PHONE` | *(phone)*                                     | OpenAPI contact |
+| `APPLICATION_PORT` | `8000`                                        | Host port |
+| `APPLICATION_ENVIRONMENT` | `development`                                 | `development` \| `homolog` \| `production` |
+| `APPLICATION_CONNECT_TIMEOUT_SECONDS` | `30`                                          | Connection timeout |
+| `APPLICATION_URL` | `http://localhost:8000`                       | Public base URL |
+| `APPLICATION_TABLE_PREFIX` | project slug                                  | Prefix on every table name |
 
 #### API key
 

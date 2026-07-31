@@ -1031,21 +1031,21 @@ pelo pydantic-settings. Acesse pelo singleton `settings` — nunca por `os.envir
 
 #### Aplicação
 
-| Chave | Exemplo | Descrição |
-|---|---|---|
+| Chave | Exemplo                                       | Descrição |
+|---|-----------------------------------------------|---|
 | `APPLICATION_TITLE` | `FastAPI Clean Architecture and DDD Template` | Título no OpenAPI |
-| `APPLICATION_SUMMARY` | *(texto)* | Resumo no OpenAPI |
-| `APPLICATION_DESCRIPTION` | *(markdown)* | Descrição no OpenAPI |
-| `APPLICATION_VERSION` | `1.0.0` | Versão no OpenAPI |
-| `APPLICATION_CONTACT_NAME` | `Bruno Tanabe` | Contato no OpenAPI |
-| `APPLICATION_CONTACT_URL` | *(url)* | Contato no OpenAPI |
-| `APPLICATION_CONTACT_EMAIL` | *(e-mail)* | Contato no OpenAPI |
-| `APPLICATION_CONTACT_PHONE` | *(telefone)* | Contato no OpenAPI |
-| `APPLICATION_PORT` | `8000` | Porta no host |
-| `APPLICATION_ENVIRONMENT` | `development` | `development` \| `homolog` \| `production` |
-| `APPLICATION_CONNECT_TIMEOUT_SECONDS` | `30` | Tempo limite de conexão |
-| `APPLICATION_URL` | `http://localhost:8000` | URL base pública |
-| `APPLICATION_TABLE_PREFIX` | slug do projeto | Prefixo em todo nome de tabela |
+| `APPLICATION_SUMMARY` | *(texto)*                                     | Resumo no OpenAPI |
+| `APPLICATION_DESCRIPTION` | *(markdown)*                                  | Descrição no OpenAPI |
+| `APPLICATION_VERSION` | `3.0.0`                                       | Versão no OpenAPI |
+| `APPLICATION_CONTACT_NAME` | `Bruno Tanabe`                                | Contato no OpenAPI |
+| `APPLICATION_CONTACT_URL` | *(url)*                                       | Contato no OpenAPI |
+| `APPLICATION_CONTACT_EMAIL` | *(e-mail)*                                    | Contato no OpenAPI |
+| `APPLICATION_CONTACT_PHONE` | *(telefone)*                                  | Contato no OpenAPI |
+| `APPLICATION_PORT` | `8000`                                        | Porta no host |
+| `APPLICATION_ENVIRONMENT` | `development`                                 | `development` \| `homolog` \| `production` |
+| `APPLICATION_CONNECT_TIMEOUT_SECONDS` | `30`                                          | Tempo limite de conexão |
+| `APPLICATION_URL` | `http://localhost:8000`                       | URL base pública |
+| `APPLICATION_TABLE_PREFIX` | slug do projeto                               | Prefixo em todo nome de tabela |
 
 #### Chave de API
 
