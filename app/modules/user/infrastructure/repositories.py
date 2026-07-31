@@ -1,15 +1,16 @@
-from typing import Optional
-
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.shared.presentation.exceptions import StandardException
+from app.modules.shared.application.exceptions import StandardException
 from app.modules.user.application.interfaces import IUserRepository
 from app.modules.user.domain.entities import User
-from app.modules.user.domain.mappers import model_entity_mapper
+from app.modules.user.application.mappers import (
+    model_entity_mapper,
+    entity_model_mapper,
+)
 from app.modules.user.infrastructure.models import UserModel
-from app.modules.user.presentation.exceptions import UserException
+from app.modules.user.application.exceptions import UserException
 
 
 class PostgresUserRepository(IUserRepository):
@@ -17,19 +18,19 @@ class PostgresUserRepository(IUserRepository):
         self.session = session
 
     # CREATE
-    async def create(self, user: User) -> None:
+    async def create(self, user: User) -> User:
         try:
-            logger.info(f"Creating user {user.email.__str__()} in database.")
+            logger.info(f"Creating user {str(user.email)} in database.")
 
-            db_user: UserModel = await model_entity_mapper(user)
+            db_user: UserModel = entity_model_mapper(user)
 
             self.session.add(db_user)
             await self.session.flush()
 
             logger.info(
-                f"User {user.email.__str__()} created successfully in database."
+                f"User {str(user.email)} with id {db_user.id} created successfully."
             )
-            return None
+            return model_entity_mapper(db_user)
         except StandardException:
             raise
         except Exception as e:
@@ -41,7 +42,7 @@ class PostgresUserRepository(IUserRepository):
     # READ
     async def exists_by_email(self, user: User) -> bool:
         try:
-            logger.info(f"Checking if user {user.email.__str__()} exists in database.")
+            logger.info(f"Checking if user {str(user.email)} exists in database.")
 
             statement = (
                 select(UserModel.id)
@@ -56,7 +57,7 @@ class PostgresUserRepository(IUserRepository):
             exists = result is not None
 
             logger.info(
-                f"Existence check for user {user.email.__str__()} completed. Exists: {exists}."
+                f"Existence check for user {str(user.email)} completed. Exists: {exists}."
             )
             return exists
         except StandardException:
@@ -67,7 +68,7 @@ class PostgresUserRepository(IUserRepository):
             )
             raise UserException()
 
-    async def get_by_id(self, user: User) -> Optional[User]:
+    async def get_by_id(self, user: User) -> User | None:
         try:
             logger.info(f"Retrieving user with id {user.id} from database.")
 
@@ -76,13 +77,13 @@ class PostgresUserRepository(IUserRepository):
             )
 
             result = await self.session.execute(statement)
-            user_model: Optional[UserModel] = result.scalar_one_or_none()
+            user_model: UserModel | None = result.scalar_one_or_none()
 
             if user_model is None:
                 logger.info(f"User with id {user.id} not found in database.")
                 return None
 
-            user: User = await model_entity_mapper(user_model)
+            user: User = model_entity_mapper(user_model)
 
             logger.info(f"User with id {user.id} retrieved successfully from database.")
             return user
@@ -94,24 +95,24 @@ class PostgresUserRepository(IUserRepository):
             )
             raise UserException()
 
-    async def get_by_email(self, user: User) -> Optional[User]:
+    async def get_by_email(self, user: User) -> User | None:
         try:
-            logger.info(f"Getting user {user.email.__str__()} from database.")
+            logger.info(f"Getting user {str(user.email)} from database.")
 
             statement = select(UserModel).where(
                 UserModel.email == str(user.email), UserModel.is_active
             )
 
             result = await self.session.execute(statement)
-            user_model: Optional[UserModel] = result.scalar_one_or_none()
+            user_model: UserModel | None = result.scalar_one_or_none()
 
             if user_model is None:
                 logger.info(
-                    f"User with email {user.email.__str__()} not found in database. Returning None."
+                    f"User with email {str(user.email)} not found in database. Returning None."
                 )
                 return None
 
-            user: User = await model_entity_mapper(user_model)
+            user: User = model_entity_mapper(user_model)
 
             logger.info(f"User {user.email} retrieved successfully.")
             return user

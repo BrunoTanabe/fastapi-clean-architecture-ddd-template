@@ -1,15 +1,13 @@
 from http import HTTPStatus
 
-from fastapi import Security
 from fastapi.responses import RedirectResponse
 
-from app.core.security import no_authentication, authenticate_admin
-from app.modules.health.application.enums import HealthType
+from app.modules.health.domain.enums import HealthType
 from app.modules.health.presentation.schemas import (
     HealthResponse,
     AlembicVersionResponse,
 )
-from app.modules.shared.application.enums import ResponseMessages
+from app.modules.shared.domain.enums import ResponseMessages
 from app.modules.shared.presentation.schemas import StandardResponse
 
 # MODULE DOCS
@@ -97,7 +95,6 @@ router_docs = {
 health_docs = {
     "summary": "Endpoint for checking the health of the application",
     "description": "This endpoint is used to verify that the application is running and healthy. It returns a simple status message.",
-    "dependencies": [Security(no_authentication)],
     "response_description": "Returns a status message indicating the health of the application.",
     "status_code": HTTPStatus.OK,
     "response_model": HealthResponse,
@@ -131,7 +128,6 @@ health_docs = {
 redirect_docs = {
     "summary": "Redirects root path to FastAPI documentation",
     "description": "This endpoint redirects the root path to the FastAPI documentation page.",
-    "dependencies": [Security(no_authentication)],
     "response_description": "Redirects to the FastAPI documentation page.",
     "status_code": HTTPStatus.PERMANENT_REDIRECT,
     "response_model": None,
@@ -166,7 +162,6 @@ redirect_docs = {
 alembic_version_docs = {
     "summary": "Endpoint to retrieve the current Alembic migration version.",
     "description": "Retrieve the current Alembic database migration version identifier. This endpoint provides information about the current state of database migrations.",
-    "dependencies": [Security(authenticate_admin)],
     "response_description": "The response contains the current Alembic version identifier.",
     "status_code": HTTPStatus.OK,
     "response_model": AlembicVersionResponse,

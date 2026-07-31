@@ -1,24 +1,22 @@
 from datetime import date
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Enum as SQLEnum, Date, UniqueConstraint
+from sqlalchemy import String, Enum as SQLEnum, Date, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.settings import settings
-from app.modules.shared.application.enums import Role
+from app.modules.shared.domain.enums import Role
+from app.modules.shared.domain.value_objects import Email, Phone
 from app.modules.shared.infrastructure.models import BaseModel
-from app.modules.user.application.enums import Gender
-from app.modules.user.domain.value_objects import Phone, Email
+from app.modules.user.domain.enums import Gender
 
 if TYPE_CHECKING:
-    from app.modules.authentication.infrastructure.models import SessionModel
+    from app.modules.authentication.infrastructure.models import AuthenticationModel
 
 
 class UserModel(BaseModel):
     __tablename__ = f"{settings.APPLICATION_TABLE_PREFIX}_users"
-    __table_args__ = (
-        UniqueConstraint("email", "is_active", name="uq_users_email_is_active"),
-    )
+    __table_args__ = (Index("ix_users_email_is_active", "email", "is_active"),)
 
     first_name: Mapped[str] = mapped_column(
         String(100),
@@ -60,9 +58,10 @@ class UserModel(BaseModel):
         name="email",
         comment="Email address of the user",
         nullable=False,
+        unique=True,
     )
 
-    phone: Mapped[Optional[Phone]] = mapped_column(
+    phone: Mapped[Phone | None] = mapped_column(
         String(18),
         name="phone",
         comment="Phone number of the user",
@@ -85,9 +84,10 @@ class UserModel(BaseModel):
         default=Role.USER,
     )
 
-    sessions: Mapped[list["SessionModel"]] = relationship(
-        "SessionModel",
+    authentications: Mapped[list["AuthenticationModel"]] = relationship(
+        "AuthenticationModel",
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="noload",
     )

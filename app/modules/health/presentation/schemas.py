@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 
-from app.modules.health.application.enums import HealthType
+from app.modules.health.domain.enums import HealthType
 
 
 # RESPONSE
